@@ -63,6 +63,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "py_cert_store"
+version = "0.1.0"
+dependencies = [
+ "pyo3",
+ "schannel",
+]
+
+[[package]]
 name = "pyo3"
 version = "0.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -123,14 +131,6 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "pypki"
-version = "0.1.0"
-dependencies = [
- "pyo3",
- "schannel",
 ]
 
 [[package]]
