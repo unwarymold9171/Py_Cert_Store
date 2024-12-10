@@ -2,8 +2,8 @@
 
 When prompted with a password leave the field blank.
 
-Re-generating the .p12 from the other provided cert files
-`openssl pkcs12 -export -out client-id.p12 -inkey key.pem -in certificate.pem -name "Rust Test Cert"`
+Re-generating the .p12 from the other provided cert files:
+- `openssl pkcs12 -export -out client-id.p12 -inkey key.pem -in certificate.pem -name "Rust Test Cert"`
 
 ## Windows
 
