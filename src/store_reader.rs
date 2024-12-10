@@ -1,7 +1,8 @@
 use pyo3::prelude::*;
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
 use schannel::cert_store::CertStore;
-use schannel::cert_context::ValidUses;
+use schannel::cert_context::{ValidUses, PrivateKey};
+
 
 #[pyfunction]
 #[pyo3(signature = (key_usage, store="My"))]
@@ -15,7 +16,7 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
 
     let mut targeted_cert: Option<_> = None;
 
-    for cert in certs.certs() {
+    'outer: for cert in certs.certs() {
         let name: String = cert.friendly_name().unwrap(); // TODO: Handle and skip over Certs missing a "Friendly Name"
         println!("{}", name);
         if !cert.is_time_valid().unwrap() {
@@ -29,13 +30,17 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
             ValidUses::All => {
                 println!("Found cert with all usages. \n\t{}", name);
                 targeted_cert = Some(cert);
-                break;
+                break 'outer;
             }
-            _ => {
-                // for u in usage
+            ValidUses::Oids(use_list) => {
                 println!("Limited Usage");
-                // TODO: scan through the usages for key_usage
-                // usage;
+                for u in use_list {
+                    if u.contains(key_usage) {
+                        println!("Found with uses case.\n\t{}", name);
+                        targeted_cert = Some(cert);
+                        break 'outer;
+                    }
+                }
             }
         }
 
@@ -45,7 +50,22 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
         None => {
             return Err(PyRuntimeError::new_err("No Valid "))
         },
-        _ => {
+        Some(cert) => {
+            // TODO
+            let private_options = cert.private_key();
+            let private = private_options.acquire().unwrap();
+
+            match private {
+                PrivateKey::CryptProv(_) => {
+                    println!("CryptKey");
+                    // TODO: I believe this is an error state here
+                },
+                PrivateKey::NcryptKey(key) => {
+                    println!("NcryptKey");
+                    // TODO: This is what the sample is
+                }
+            }
+
             return Ok(key_usage.to_string());
         }
     }
