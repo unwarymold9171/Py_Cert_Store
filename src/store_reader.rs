@@ -17,18 +17,31 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
     let mut targeted_cert: Option<_> = None;
 
     'outer: for cert in certs.certs() {
-        let name: String = cert.friendly_name().unwrap(); // TODO: Handle and skip over Certs missing a "Friendly Name"
-        println!("{}", name);
+        let friendly_name = match cert.friendly_name() {
+            Ok(name) => name,
+            Err(_) => {
+                println!("Found cert with no Friendly Name. Skipping...");
+                continue;
+                // TODO: Give a generic Friendly Name rather than skip the file
+            }
+        };
+
         if !cert.is_time_valid().unwrap() {
-            println!("Skipped {}, expired", name);
+            println!("Skipped {}, expired. Skipping...", friendly_name);
             continue;
         }
+
+        // This is not the step I wish to take here,
+        // I want to read all extented fields
+
+        // Based on documentation of schannel and rustls-cng
+        // I may have to rewrite/add to their existing features before I can get the information I need
 
         let usage: ValidUses = cert.valid_uses().unwrap();
 
         match usage {
             ValidUses::All => {
-                println!("Found cert with all usages. \n\t{}", name);
+                println!("Found cert with all usages. \n\t🔑: {}", friendly_name);
                 targeted_cert = Some(cert);
                 break 'outer;
             }
@@ -36,7 +49,7 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
                 println!("Limited Usage");
                 for u in use_list {
                     if u.contains(key_usage) {
-                        println!("Found with uses case.\n\t{}", name);
+                        println!("Found with uses case.\n\t{}", friendly_name);
                         targeted_cert = Some(cert);
                         break 'outer;
                     }
