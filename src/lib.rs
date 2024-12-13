@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 
 pub mod store_reader;
+pub mod windows_store;
 
 /// Formats the sum of two numbers as string.
 // #[pyfunction]
