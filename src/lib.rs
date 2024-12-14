@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use pyo3::prelude::*;
 
 pub mod store_reader;

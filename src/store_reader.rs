@@ -1,7 +1,14 @@
+#[deny(clippy::unwrap_used)]
+#[deny(clippy::expect_used)]
+#[deny(clippy::panic)]
+
 use pyo3::prelude::*;
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
-use schannel::cert_store::CertStore;
-use schannel::cert_context::{ValidUses, PrivateKey};
+// use schannel::cert_store::CertStore; // TODO: Fully replace
+// use schannel::cert_context::{ValidUses, PrivateKey}; // TODO: Fully replace
+
+use crate::windows_store::cert_store::CertStore;
+use crate::windows_store::cert_context::CertContext;
 
 
 #[pyfunction]
@@ -12,10 +19,17 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
     }
     println!("Windows");
 
-    let certs: CertStore = CertStore::open_current_user(store).unwrap();
+    let certs = match CertStore::open_current_user(store){
+        Ok(certs) => certs,
+        Err(_) => {
+            return Err(PyRuntimeError::new_err("Could not open the certificate store."));
+        }
+    };
 
-    let mut targeted_cert: Option<_> = None;
+    #[allow(unused_mut)] // TODO: Remove
+    let mut targeted_cert: Option<CertContext> = None;
 
+    #[allow(unused_labels)] // TODO: Remove
     'outer: for cert in certs.certs() {
         let friendly_name = match cert.friendly_name() {
             Ok(name) => name,
@@ -37,25 +51,25 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
         // Based on documentation of schannel and rustls-cng
         // I may have to rewrite/add to their existing features before I can get the information I need
 
-        let usage: ValidUses = cert.valid_uses().unwrap();
+        // let usage = cert.valid_uses().unwrap(); // TODO: Error handling (clippy is set to deny unwrap)
 
-        match usage {
-            ValidUses::All => {
-                println!("Found cert with all usages. \n\t🔑: {}", friendly_name);
-                targeted_cert = Some(cert);
-                break 'outer;
-            }
-            ValidUses::Oids(use_list) => {
-                println!("Limited Usage");
-                for u in use_list {
-                    if u.contains(key_usage) {
-                        println!("Found with uses case.\n\t{}", friendly_name);
-                        targeted_cert = Some(cert);
-                        break 'outer;
-                    }
-                }
-            }
-        }
+        // match usage {
+        //     ValidUses::All => {
+        //         println!("Found cert with all usages. \n\t🔑: {}", friendly_name);
+        //         targeted_cert = Some(cert);
+        //         break 'outer;
+        //     }
+        //     ValidUses::Oids(use_list) => {
+        //         println!("Limited Usage");
+        //         for u in use_list {
+        //             if u.contains(key_usage) {
+        //                 println!("Found with uses case.\n\t{}", friendly_name);
+        //                 targeted_cert = Some(cert);
+        //                 break 'outer;
+        //             }
+        //         }
+        //     }
+        // }
 
     }
 
@@ -63,24 +77,26 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
         None => {
             return Err(PyRuntimeError::new_err("No Valid "))
         },
+        #[allow(unused_variables)] // TODO: Remove
         Some(cert) => {
             // TODO
-            let private_options = cert.private_key();
-            let private = private_options.acquire().unwrap();
+    //         let private_options = cert.private_key();
+    //         let private = private_options.acquire().unwrap();
 
-            match private {
-                PrivateKey::CryptProv(_) => {
-                    println!("CryptKey");
-                    // TODO: I believe this is an error state here
-                },
-                PrivateKey::NcryptKey(key) => {
-                    println!("NcryptKey");
-                    // TODO: This is what the sample is
-                }
-            }
+    //         match private {
+    //             PrivateKey::CryptProv(_) => {
+    //                 println!("CryptKey");
+    //                 // TODO: I believe this is an error state here
+    //             },
+    //             PrivateKey::NcryptKey(key) => {
+    //                 println!("NcryptKey");
+    //                 // TODO: This is what the sample is
+    //             }
+    //         }
 
-            return Ok(key_usage.to_string());
+    //         return Ok(key_usage.to_string());
         }
     }
+    Ok(key_usage.to_string())
 
 }
