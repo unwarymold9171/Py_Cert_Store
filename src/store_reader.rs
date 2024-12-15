@@ -11,13 +11,19 @@ use crate::windows_store::cert_store::CertStore;
 use crate::windows_store::cert_context::CertContext;
 
 
+#[allow(unused_variables)] // TODO: Remove
 #[pyfunction]
-#[pyo3(signature = (key_usage, store="My"))]
-pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
+#[pyo3(signature = (store="My", extention_name=None, extention_value=None))]
+/// Find a certificate in the Windows Certificate Store by its extention
+pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, extention_value:Option<&str>) -> PyResult<String>  {
+    // TODO: Change return type to either Bytes or CertContext
+    // NOTE: It is possible that more than one certificate is found metching the criteria, but current implementation only returns the first one found
+    // NOTE: Based on the original python function this is trying to replace, it assumes that only one certificate will be found (or ony others will have expired)
+    // TODO: Add python description to the function in a docstring in a stub file
+    // TODO: Clean these notes and todos
     if !cfg!(windows){
-        return Err(PyOSError::new_err("The `get_win_cert` function can only called from a Windows computer.")); // TODO
+        return Err(PyOSError::new_err("The `find_windows_cert_by_extention` function can only called from a Windows computer."));
     }
-    println!("Windows");
 
     let certs = match CertStore::open_current_user(store){
         Ok(certs) => certs,
@@ -34,22 +40,37 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
         let friendly_name = match cert.friendly_name() {
             Ok(name) => name,
             Err(_) => {
-                println!("Found cert with no Friendly Name. Skipping...");
-                continue;
-                // TODO: Give a generic Friendly Name rather than skip the file
+                "No_Name".to_string()
             }
         };
 
-        if !cert.is_time_valid().unwrap() {
-            println!("Skipped {}, expired. Skipping...", friendly_name);
-            continue;
+        match cert.is_time_valid() {
+            Ok(valid) => {
+                if !valid {
+                    println!("Skipped {}, expired. Skipping...", friendly_name); // TODO: Remove the print
+                    continue;
+                }
+            },
+            Err(_) => {
+                println!("Unable to check {}'s time validity. Skipping...", friendly_name); // TODO: Remove the print
+                continue;
+            }
         }
 
-        // This is not the step I wish to take here,
-        // I want to read all extented fields
 
-        // Based on documentation of schannel and rustls-cng
-        // I may have to rewrite/add to their existing features before I can get the information I need
+        
+
+        // let extended_properties = match cert.extended_properties(){
+        //     Ok(properties) => properties,
+        //     Err(_) => {
+        //         println!("Something likely went wrong"); // TODO: Remove the print
+        //         continue;
+        //     }
+        // };
+        // println!("{}", extended_properties.len()); // TODO: Remove
+
+        // This is not the step I wish to take here,
+        // I want to read all extented fields rather than the key usage
 
         // let usage = cert.valid_uses().unwrap(); // TODO: Error handling (clippy is set to deny unwrap)
 
@@ -70,15 +91,26 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
         //         }
         //     }
         // }
-
     }
 
     match targeted_cert {
         None => {
-            return Err(PyRuntimeError::new_err("No Valid "))
+            return Err(PyRuntimeError::new_err("No Valid Certificates found."));
         },
-        #[allow(unused_variables)] // TODO: Remove
         Some(cert) => {
+            match cert.is_exportable() {
+                Ok(exportable) => {
+                    if !exportable {
+                        // TODO: Raise a new type of python error here
+                        // Err(PyErr::new_type(py, name, doc, base, dict))
+                    }
+                },
+                Err(_) => {
+                    // TODO: Raise a new type of python error here
+                    // Err(PyErr::new_type(py, name, doc, base, dict))
+                }
+
+            }
             // TODO
     //         let private_options = cert.private_key();
     //         let private = private_options.acquire().unwrap();
@@ -97,6 +129,6 @@ pub fn get_win_cert(key_usage:&str, store:&str) -> PyResult<String>  {
     //         return Ok(key_usage.to_string());
         }
     }
-    Ok(key_usage.to_string())
+    Ok("".to_string())
 
 }

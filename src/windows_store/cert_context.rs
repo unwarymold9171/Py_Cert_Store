@@ -118,25 +118,13 @@ impl CertContext {
                 &mut len
             )
         };
-        Ok(ret == 0)
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        Ok(key_spec == Cryptography::AT_KEYEXCHANGE)
     }
-    
-
-    // pub fn issuer(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_ISSUER_NAME_STR)
-    // }
-
-    // pub fn subject(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_SUBJECT_NAME_STR)
-    // }
-
-    // pub fn thumbprint(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_SHA1_HASH_PROP_ID)
-    // }
-
-    // pub fn valid_uses(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
-    // }
 
     // pub fn private_key(&self) -> Result<String> {
     //     self.get_string(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
@@ -154,17 +142,33 @@ impl CertContext {
     //     self.get_string(Cryptography::CERT_KEY_USAGE_PROP_ID)
     // }
 
-    // pub fn enhanced_key_usage(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_ENHKEY_USAGE_PROP_ID)
-    // }
-
-    // pub fn key_spec(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_KEY_SPEC_PROP_ID)
-    // }
-
-    // pub fn key_context(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_KEY_CONTEXT_PROP_ID)
-    // }
-
-
 }
+
+
+
+/* C++ code that needs to be replicated
+bool CertHasDigitalSignature(PCCERT_CONTEXT pCert)
+{
+    bool retVal(false);
+    CERT_EXTENSION* keyUsage;
+
+    keyUsage = CertFindExtension(szOID_KEY_USAGE, pCert->pCertInfo->cExtension, pCert->pCertInfo->rgExtension);
+    if(NULL != keyUsage)
+    {
+        DWORD strSz(0);
+
+        if(CryptFormatObject(X509_ASN_ENCODING, 0, 0, NULL, szOID_KEY_USAGE, keyUsage->Value.pbData ,keyUsage->Value.cbData, NULL, &strSz))
+        {
+            std::wstring Buff;
+
+            Buff.resize((strSz / sizeof(wchar_t)) + 1);
+            if(CryptFormatObject(X509_ASN_ENCODING, 0, 0, NULL, szOID_KEY_USAGE, keyUsage->Value.pbData ,keyUsage->Value.cbData, (void*)Buff.data(), &strSz))
+            {
+                if (std::wstring::npos != Buff.find(L"Digital Signature"))
+                    retVal = true;
+            }
+        }
+    }
+    return retVal;
+}
+*/

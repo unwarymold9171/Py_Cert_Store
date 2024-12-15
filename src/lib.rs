@@ -15,6 +15,6 @@ pub mod windows_store;
 #[pymodule]
 fn py_cert_store(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
-    m.add_function(wrap_pyfunction!(store_reader::get_win_cert, m)?)?;
+    m.add_function(wrap_pyfunction!(store_reader::find_windows_cert_by_extention, m)?)?;
     Ok(())
 }

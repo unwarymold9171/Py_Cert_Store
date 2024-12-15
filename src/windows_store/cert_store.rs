@@ -53,7 +53,7 @@ impl <'a> Iterator for CertIter<'a> {
     
 }
 
-inner_impl!(CertStore, Cryptography::HCERTSTORE);
+// inner_impl!(CertStore, Cryptography::HCERTSTORE); // NOTE: May not need this
 
 impl CertStore {
     pub fn open_current_user(store:&str) -> Result<CertStore> {
@@ -62,18 +62,19 @@ impl CertStore {
                 .encode_wide()
                 .chain(Some(0))
                 .collect::<Vec<_>>();
-            let _store = Cryptography::CertOpenStore(
-                Cryptography::CERT_STORE_PROV_FILENAME_W,
+            let store = Cryptography::CertOpenStore(
+                Cryptography::CERT_STORE_PROV_SYSTEM_W,
                 Cryptography::CERT_QUERY_ENCODING_TYPE::default(),
                 Cryptography::HCRYPTPROV_LEGACY::default(),
                 Cryptography::CERT_SYSTEM_STORE_CURRENT_USER_ID
                   << Cryptography::CERT_SYSTEM_STORE_LOCATION_SHIFT,
-                data.as_ptr() as *mut std::ffi::c_void
+                data.as_ptr() as *mut _
             );
-            if _store.is_null() {
-                return Err(Error::last_os_error());
+            if !store.is_null() {
+                Ok(CertStore(store))
+            } else {
+                Err(Error::last_os_error())
             }
-            Ok(CertStore(_store))
         }
     }
 
@@ -84,5 +85,6 @@ impl CertStore {
         }
     }
 
+    // TODO: Check the original python module if I want to extend this
 
 }
