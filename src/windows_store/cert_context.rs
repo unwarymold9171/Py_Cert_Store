@@ -1,11 +1,13 @@
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStringExt;
 use std::ptr;
+// use std::mem;
 use std::ffi::OsString;
 // use pyo3::prelude::*;
 use windows_sys::Win32::Security::Cryptography;
 
 // use crate::windows_store::cert_store::CertStore; // My not need this since I am only store to cert
+// use crate::windows_store::cert_extention::CertExtention;
 // use crate::windows_store::Inner;
 
 // #[derive(Copy, CLoner)]
@@ -25,10 +27,41 @@ impl Clone for CertContext {
     }
 }
 
+// pub struct InfoIter<'a> {
+//     store: &'a CertContext,
+//     cur: Option<CertExtention>
+// }
+
+// impl <'a> Iterator for InfoIter<'a> {
+//     type Item = CertContext;
+
+//     fn next(&mut self) -> Option<CertExtention> {
+//         unsafe {
+//             let cur = self.cur.take().map(|p| {
+//                 let ptr = p.as_inner();
+//                 mem::forget(p);
+//                 ptr
+//             });
+//             let cur = cur.unwrap_or(ptr::null_mut());
+//             let next = Cryptography::CertEnumCRLContextProperties(self.store.0, cur);
+
+//             if next.is_null() {
+//                 self.cur = None;
+//                 return None;
+//             } else {
+//                 let next = CertExtention::from_inner(next);
+//                 self.cur = Some(next.clone());
+//                 Some(next)
+//             }
+//         }
+//     }
+// }
+
 inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 
+// May want to make this a python class and allow some of the functions to be called from python (like extentions)
 impl CertContext {
-    // NOTE: This function may not be used, but included until confirmed
+    // NOTE: This function may be needed to provide private bytes for the certificate
     #[allow(dead_code)]
     fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
         unsafe {
@@ -134,41 +167,55 @@ impl CertContext {
     //     self.get_string(Cryptography::CERT_PUBLIC_KEY_PROP_ID)
     // }
 
-    // pub fn extended_key_usage(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_ENHKEY_USAGE_PROP_ID)
-    // }
+    pub fn has_digital_signature(&self) -> Result<bool> {
+        unsafe {
+            let key_usage = Cryptography::CertFindExtension(
+                Cryptography::szOID_KEY_USAGE,
+                (*(*self.0).pCertInfo).cExtension,
+                (*(*self.0).pCertInfo).rgExtension,
+            );
 
-    // pub fn key_usage(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_KEY_USAGE_PROP_ID)
-    // }
-
-}
-
-
-
-/* C++ code that needs to be replicated
-bool CertHasDigitalSignature(PCCERT_CONTEXT pCert)
-{
-    bool retVal(false);
-    CERT_EXTENSION* keyUsage;
-
-    keyUsage = CertFindExtension(szOID_KEY_USAGE, pCert->pCertInfo->cExtension, pCert->pCertInfo->rgExtension);
-    if(NULL != keyUsage)
-    {
-        DWORD strSz(0);
-
-        if(CryptFormatObject(X509_ASN_ENCODING, 0, 0, NULL, szOID_KEY_USAGE, keyUsage->Value.pbData ,keyUsage->Value.cbData, NULL, &strSz))
-        {
-            std::wstring Buff;
-
-            Buff.resize((strSz / sizeof(wchar_t)) + 1);
-            if(CryptFormatObject(X509_ASN_ENCODING, 0, 0, NULL, szOID_KEY_USAGE, keyUsage->Value.pbData ,keyUsage->Value.cbData, (void*)Buff.data(), &strSz))
-            {
-                if (std::wstring::npos != Buff.find(L"Digital Signature"))
-                    retVal = true;
+            if key_usage.is_null() {
+                return Ok(false); // Not finding the target usage should just return false
             }
+
+            let mut str_sz = 0;
+            let ret = Cryptography::CryptFormatObject(
+                Cryptography::X509_ASN_ENCODING,
+                0,
+                0,
+                ptr::null_mut(),
+                Cryptography::szOID_KEY_USAGE,
+                (*key_usage).Value.pbData,
+                (*key_usage).Value.cbData,
+                ptr::null_mut(),
+                &mut str_sz,
+            );
+
+            if ret == 0 {
+                return Err(Error::last_os_error());
+            }
+
+            let mut buff = Vec::with_capacity((str_sz / 2) as usize);
+            buff.set_len((str_sz / 2) as usize);
+            let ret = Cryptography::CryptFormatObject(
+                Cryptography::X509_ASN_ENCODING,
+                0,
+                0,
+                ptr::null_mut(),
+                Cryptography::szOID_KEY_USAGE,
+                (*key_usage).Value.pbData,
+                (*key_usage).Value.cbData,
+                buff.as_mut_ptr() as *mut _,
+                &mut str_sz,
+            );
+
+            if ret == 0 {
+                return Err(Error::last_os_error());
+            }
+
+            let buff = String::from_utf16_lossy(&buff);
+            return Ok(buff.contains("Digital Signature"));
         }
     }
-    return retVal;
 }
-*/

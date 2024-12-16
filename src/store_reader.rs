@@ -57,7 +57,15 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
             }
         }
 
+        let has_digital_signature = match cert.has_digital_signature() {
+            Ok(has) => has,
+            Err(_) => {
+                println!("Unable to check {}'s digital signature. Skipping...", friendly_name); // TODO: Remove the print
+                continue;
+            }
+        };
 
+        println!("{} has digital signature: {}", friendly_name, has_digital_signature); // TODO: Remove the print
         
 
         // let extended_properties = match cert.extended_properties(){
