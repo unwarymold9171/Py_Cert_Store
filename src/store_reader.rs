@@ -4,11 +4,10 @@
 
 use pyo3::prelude::*;
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
-// use schannel::cert_store::CertStore; // TODO: Fully replace
-// use schannel::cert_context::{ValidUses, PrivateKey}; // TODO: Fully replace
 
 use crate::windows_store::cert_store::CertStore;
 use crate::windows_store::cert_context::CertContext;
+use crate::exceptions::CertNotExportable;
 
 
 #[allow(unused_variables)] // TODO: Remove
@@ -16,10 +15,7 @@ use crate::windows_store::cert_context::CertContext;
 #[pyo3(signature = (store="My", extention_name=None, extention_value=None))]
 /// Find a certificate in the Windows Certificate Store by its extention
 pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, extention_value:Option<&str>) -> PyResult<String>  {
-    // TODO: Change return type to either Bytes or CertContext
-    // NOTE: It is possible that more than one certificate is found metching the criteria, but current implementation only returns the first one found
-    // NOTE: Based on the original python function this is trying to replace, it assumes that only one certificate will be found (or ony others will have expired)
-    // TODO: Add python description to the function in a docstring in a stub file
+    // TODO: Change return type to either Bytes/CertContext/Dict
     // TODO: Clean these notes and todos
     if !cfg!(windows){
         return Err(PyOSError::new_err("The `find_windows_cert_by_extention` function can only called from a Windows computer."));
@@ -45,12 +41,10 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
         match cert.is_time_valid() {
             Ok(valid) => {
                 if !valid {
-                    println!("Skipped {}, expired. Skipping...", friendly_name); // TODO: Remove the print
                     continue;
                 }
             },
             Err(_) => {
-                println!("Unable to check {}'s time validity. Skipping...", friendly_name); // TODO: Remove the print
                 continue;
             }
         }
@@ -63,19 +57,9 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
                 continue;
             },
             Err(_) => {
-                println!("Unable to check {}'s digital signature. Skipping...", friendly_name); // TODO: Remove the print
                 continue;
             }
         };
-
-        // let extended_properties = match cert.extended_properties(){
-        //     Ok(properties) => properties,
-        //     Err(_) => {
-        //         println!("Something likely went wrong"); // TODO: Remove the print
-        //         continue;
-        //     }
-        // };
-        // println!("{}", extended_properties.len()); // TODO: Remove
 
     }
 
@@ -87,14 +71,12 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
             match cert.is_exportable() {
                 Ok(exportable) => {
                     if !exportable {
-                        // TODO: Raise a new type of python error here
-                        // Err(PyErr::new_type(py, name, doc, base, dict))
-                        return Err(PyRuntimeError::new_err("The certificate is not exportable."));
+                        return Err(CertNotExportable::new_err("The certificate is not exportable."));
                     }
                 },
                 Err(_) => {
-                    // TODO: Raise a new type of python error here
-                    // Err(PyErr::new_type(py, name, doc, base, dict))
+                    return Err(PyRuntimeError::new_err("Could not determine if the certificate is exportable."));
+                    // NOTE: may change this error to a custom error
                 }
 
             }

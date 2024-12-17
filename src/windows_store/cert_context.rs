@@ -1,20 +1,9 @@
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStringExt;
 use std::ptr;
-// use std::mem;
 use std::ffi::OsString;
-// use pyo3::prelude::*;
 use windows_sys::Win32::Security::Cryptography;
 
-// use crate::windows_store::cert_store::CertStore; // My not need this since I am only store to cert
-// use crate::windows_store::cert_extention::CertExtention;
-// use crate::windows_store::Inner;
-
-// #[derive(Copy, CLoner)]
-// pub struct HashAlgorithm {
-//     pub oid: &'static str,
-//     pub name: &'static str,
-// }
 
 #[derive(Debug)]
 pub struct CertContext(*const Cryptography::CERT_CONTEXT);
@@ -26,36 +15,6 @@ impl Clone for CertContext {
         }
     }
 }
-
-// pub struct InfoIter<'a> {
-//     store: &'a CertContext,
-//     cur: Option<CertExtention>
-// }
-
-// impl <'a> Iterator for InfoIter<'a> {
-//     type Item = CertContext;
-
-//     fn next(&mut self) -> Option<CertExtention> {
-//         unsafe {
-//             let cur = self.cur.take().map(|p| {
-//                 let ptr = p.as_inner();
-//                 mem::forget(p);
-//                 ptr
-//             });
-//             let cur = cur.unwrap_or(ptr::null_mut());
-//             let next = Cryptography::CertEnumCRLContextProperties(self.store.0, cur);
-
-//             if next.is_null() {
-//                 self.cur = None;
-//                 return None;
-//             } else {
-//                 let next = CertExtention::from_inner(next);
-//                 self.cur = Some(next.clone());
-//                 Some(next)
-//             }
-//         }
-//     }
-// }
 
 inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 
