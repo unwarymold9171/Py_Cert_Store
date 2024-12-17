@@ -32,11 +32,9 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
         }
     };
 
-    #[allow(unused_mut)] // TODO: Remove
     let mut targeted_cert: Option<CertContext> = None;
 
-    #[allow(unused_labels)] // TODO: Remove
-    'outer: for cert in certs.certs() {
+    for cert in certs.certs() {
         let friendly_name = match cert.friendly_name() {
             Ok(name) => name,
             Err(_) => {
@@ -57,16 +55,18 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
             }
         }
 
-        let has_digital_signature = match cert.has_digital_signature() {
-            Ok(has) => has,
+        match cert.has_digital_signature() { // TODO: Alter this function to take a parameter
+            Ok(has) => {
+                if has {
+                    targeted_cert = Some(cert);
+                }
+                continue;
+            },
             Err(_) => {
                 println!("Unable to check {}'s digital signature. Skipping...", friendly_name); // TODO: Remove the print
                 continue;
             }
         };
-
-        println!("{} has digital signature: {}", friendly_name, has_digital_signature); // TODO: Remove the print
-        
 
         // let extended_properties = match cert.extended_properties(){
         //     Ok(properties) => properties,
@@ -77,28 +77,6 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
         // };
         // println!("{}", extended_properties.len()); // TODO: Remove
 
-        // This is not the step I wish to take here,
-        // I want to read all extented fields rather than the key usage
-
-        // let usage = cert.valid_uses().unwrap(); // TODO: Error handling (clippy is set to deny unwrap)
-
-        // match usage {
-        //     ValidUses::All => {
-        //         println!("Found cert with all usages. \n\t🔑: {}", friendly_name);
-        //         targeted_cert = Some(cert);
-        //         break 'outer;
-        //     }
-        //     ValidUses::Oids(use_list) => {
-        //         println!("Limited Usage");
-        //         for u in use_list {
-        //             if u.contains(key_usage) {
-        //                 println!("Found with uses case.\n\t{}", friendly_name);
-        //                 targeted_cert = Some(cert);
-        //                 break 'outer;
-        //             }
-        //         }
-        //     }
-        // }
     }
 
     match targeted_cert {
@@ -111,6 +89,7 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
                     if !exportable {
                         // TODO: Raise a new type of python error here
                         // Err(PyErr::new_type(py, name, doc, base, dict))
+                        return Err(PyRuntimeError::new_err("The certificate is not exportable."));
                     }
                 },
                 Err(_) => {
@@ -134,9 +113,10 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
     //             }
     //         }
 
-    //         return Ok(key_usage.to_string());
+            // return Ok(key_usage.to_string());
+            return Ok("Found a certificate.".to_string());
         }
     }
-    Ok("".to_string())
+    // Ok("".to_string())
 
 }

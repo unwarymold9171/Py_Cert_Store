@@ -129,6 +129,8 @@ impl CertContext {
         self.get_string(Cryptography::CERT_FRIENDLY_NAME_PROP_ID)
     }
 
+    // TODO: Add more functions that return strings, or else it may be better to implement the get_string method in the firendly_name function
+
     pub fn is_time_valid(&self) -> Result<bool> {
         let ret = unsafe {
             Cryptography::CertVerifyTimeValidity(
