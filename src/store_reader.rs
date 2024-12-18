@@ -4,17 +4,19 @@
 
 use pyo3::prelude::*;
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
+// use pyo3::types::IntoPyDict; // May need this?
+use windows_sys::Win32::Security::Cryptography;
 
 use crate::windows_store::cert_store::CertStore;
 use crate::windows_store::cert_context::CertContext;
 use crate::exceptions::CertNotExportable;
 
 
-#[allow(unused_variables)] // TODO: Remove
 #[pyfunction]
-#[pyo3(signature = (store="My", extention_name=None, extention_value=None))]
+#[pyo3(signature = (store="My", extention_oid=None, extention_value=None))]
 /// Find a certificate in the Windows Certificate Store by its extention
-pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, extention_value:Option<&str>) -> PyResult<String>  {
+#[allow(unused_variables)]
+pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, extention_value:Option<&str>) -> PyResult<String>  {
     // TODO: Change return type to either Bytes/CertContext/Dict
     // TODO: Clean these notes and todos
     if !cfg!(windows){
@@ -31,13 +33,6 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
     let mut targeted_cert: Option<CertContext> = None;
 
     for cert in certs.certs() {
-        let friendly_name = match cert.friendly_name() {
-            Ok(name) => name,
-            Err(_) => {
-                "No_Name".to_string()
-            }
-        };
-
         match cert.is_time_valid() {
             Ok(valid) => {
                 if !valid {
@@ -49,7 +44,15 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
             }
         }
 
-        match cert.has_digital_signature() { // TODO: Alter this function to take a parameter
+        // let extention_oid = match extention_oid {
+        //     Some(oid) => oid,
+        //     None => {
+        //         // TODO: do not throw an error here, but skip the check
+        //         return Err(PyRuntimeError::new_err("No extention OID provided."));
+        //     }
+        // };
+
+        match cert.has_extention_with_property(Cryptography::szOID_KEY_USAGE, extention_value) { // TODO: Alter this function to take a parameter
             Ok(has) => {
                 if has {
                     targeted_cert = Some(cert);
@@ -80,6 +83,15 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
                 }
 
             }
+
+            #[allow(unused_variables)] // TODO: Remove this line
+            let friendly_name = match cert.friendly_name() {
+                Ok(name) => name,
+                Err(_) => {
+                    "".to_string()
+                }
+            };
+
             // TODO
     //         let private_options = cert.private_key();
     //         let private = private_options.acquire().unwrap();
@@ -95,7 +107,15 @@ pub fn find_windows_cert_by_extention(store:&str, extention_name:Option<&str>, e
     //             }
     //         }
 
-            // return Ok(key_usage.to_string());
+            // TODO: The output will be a dictionary of the certificate's properties (friendly name, private key, public key, etc.)
+            // let output_dict: Vec<(&str, PyObject)> = vec![
+            //     ("Friendly Name", match friendly_name.into_pyobject(py){
+            //         Ok(obj) => obj,
+            //         Err(_) => "".to_string().into_pyobject(py).unwrap()
+            //     }),
+            // ];
+            // let dict = output_dict.into_py_dict(py);
+
             return Ok("Found a certificate.".to_string());
         }
     }

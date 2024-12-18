@@ -128,10 +128,10 @@ impl CertContext {
     //     self.get_string(Cryptography::CERT_PUBLIC_KEY_PROP_ID)
     // }
 
-    pub fn has_digital_signature(&self) -> Result<bool> {
+    pub fn has_extention_with_property(&self, extention_oid:*const u8, extention_value:Option<&str>) -> Result<bool> {
         unsafe {
             let key_usage = Cryptography::CertFindExtension(
-                Cryptography::szOID_KEY_USAGE,
+                extention_oid,
                 (*(*self.0).pCertInfo).cExtension,
                 (*(*self.0).pCertInfo).rgExtension,
             );
@@ -140,43 +140,52 @@ impl CertContext {
                 return Ok(false); // Not finding the target usage should just return false
             }
 
-            let mut str_sz = 0;
-            let ret = Cryptography::CryptFormatObject(
-                Cryptography::X509_ASN_ENCODING,
-                0,
-                0,
-                ptr::null_mut(),
-                Cryptography::szOID_KEY_USAGE,
-                (*key_usage).Value.pbData,
-                (*key_usage).Value.cbData,
-                ptr::null_mut(),
-                &mut str_sz,
-            );
+            match extention_value {
+                Some(value) => {
+                    let mut str_sz = 0;
+                    let ret = Cryptography::CryptFormatObject(
+                        Cryptography::X509_ASN_ENCODING,
+                        0,
+                        0,
+                        ptr::null_mut(),
+                        extention_oid,
+                        (*key_usage).Value.pbData,
+                        (*key_usage).Value.cbData,
+                        ptr::null_mut(),
+                        &mut str_sz,
+                    );
 
-            if ret == 0 {
-                return Err(Error::last_os_error());
+                    if ret == 0 {
+                        return Err(Error::last_os_error());
+                    }
+
+                    let mut buff = Vec::with_capacity((str_sz / 2) as usize);
+                    buff.set_len((str_sz / 2) as usize);
+                    let ret = Cryptography::CryptFormatObject(
+                        Cryptography::X509_ASN_ENCODING,
+                        0,
+                        0,
+                        ptr::null_mut(),
+                        extention_oid,
+                        (*key_usage).Value.pbData,
+                        (*key_usage).Value.cbData,
+                        buff.as_mut_ptr() as *mut _,
+                        &mut str_sz,
+                    );
+
+                    if ret == 0 {
+                        return Err(Error::last_os_error());
+                    }
+
+                    let buff = String::from_utf16_lossy(&buff);
+                    return Ok(buff.contains(value));
+                }
+                None => {
+                    return Ok(true);
+                }
             }
 
-            let mut buff = Vec::with_capacity((str_sz / 2) as usize);
-            buff.set_len((str_sz / 2) as usize);
-            let ret = Cryptography::CryptFormatObject(
-                Cryptography::X509_ASN_ENCODING,
-                0,
-                0,
-                ptr::null_mut(),
-                Cryptography::szOID_KEY_USAGE,
-                (*key_usage).Value.pbData,
-                (*key_usage).Value.cbData,
-                buff.as_mut_ptr() as *mut _,
-                &mut str_sz,
-            );
-
-            if ret == 0 {
-                return Err(Error::last_os_error());
-            }
-
-            let buff = String::from_utf16_lossy(&buff);
-            return Ok(buff.contains("Digital Signature"));
+            
         }
     }
 }
