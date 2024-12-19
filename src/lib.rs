@@ -1,14 +1,19 @@
-use pyo3::prelude::*;
+#![cfg(windows)]
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
-}
+use pyo3::prelude::*;
+use pyo3::Python;
+
+pub mod store_reader;
+pub mod windows_store;
+pub mod exceptions;
+
+use exceptions::CertNotExportable;
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn pypki(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+fn py_cert_store(py:Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+    m.add_function(wrap_pyfunction!(store_reader::find_windows_cert_by_extention, m)?)?;
+    m.add("CertNotExportable", py.get_type::<CertNotExportable>())?;
     Ok(())
 }
