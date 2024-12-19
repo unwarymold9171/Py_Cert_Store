@@ -1,4 +1,4 @@
-def find_windows_cert_by_extention(store:str="My", extention_oid:int=None, extention_value:str=None) -> str: # TODO chjange the return type to bytes
+def find_windows_cert_by_extention(store:str="My", extention_oid:int=None, extention_value:str=None) -> str: # TODO change the return type to a dictionary (or list of dictionarys)
     """
     Find a certificate in the Windows certificate store by its extention.
     

@@ -21,7 +21,7 @@ inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 // May want to make this a python class and allow some of the functions to be called from python (like extentions)
 impl CertContext {
     // NOTE: This function may be needed to provide private bytes for the certificate
-    #[allow(dead_code)]
+    // #[allow(dead_code)]
     fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
         unsafe {
             let mut len = 0;
@@ -88,7 +88,38 @@ impl CertContext {
         self.get_string(Cryptography::CERT_FRIENDLY_NAME_PROP_ID)
     }
 
-    // TODO: Add more functions that return strings, or else it may be better to implement the get_string method in the firendly_name function
+    pub fn name(&self) -> Result<String> {
+        self.get_string(Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE)
+    }
+
+    // TODO
+    // pub fn valid_from(&self) -> Result<String> {
+    //     self.get_string(Cryptography::CERT_VALID_FROM_PROP_ID)
+    // }
+
+    // TODO
+    // pub fn valid_to(&self) -> Result<String> {
+    //     self.get_string(Cryptography::CERT_VALID_TO_PROP_ID)
+    // }
+
+    // TODO
+    // pub fn issuer(&self) -> Result<String> {
+    //     self.get_string(Cryptography::CERT_ISSUER_PROP_ID)
+    // }
+
+    // TODO
+    // pub fn subject(&self) -> Result<String> {
+    //     self.get_string(Cryptography::CERT_SUBJECT_PROP_ID)
+    // }
+
+    pub fn private_key(&self) -> Result<Vec<u8>> {
+        self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
+    }
+
+    // Do not need this function (probably)
+    // pub fn public_key(&self) -> Result<Vec<u8>> {
+    //     self.get_bytes(Cryptography::CERT_PUBLIC_KEY_PROP_ID)
+    // }
 
     pub fn is_time_valid(&self) -> Result<bool> {
         let ret = unsafe {
@@ -100,7 +131,6 @@ impl CertContext {
         Ok(ret == 0)
     }
 
-    // TODO: This function was auto generated, and need to be varified
     pub fn is_exportable(&self) -> Result<bool> {
         let mut key_spec = 0;
         let mut len = std::mem::size_of::<u32>() as u32;
@@ -119,14 +149,6 @@ impl CertContext {
 
         Ok(key_spec == Cryptography::AT_KEYEXCHANGE)
     }
-
-    // pub fn private_key(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
-    // }
-
-    // pub fn public_key(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_PUBLIC_KEY_PROP_ID)
-    // }
 
     pub fn has_extention_with_property(&self, extention_oid:*const u8, extention_value:Option<&str>) -> Result<bool> {
         unsafe {
