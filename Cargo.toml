@@ -9,5 +9,5 @@ name = "py_cert_store"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.23.1"
+pyo3 = "0.24.1"
 windows-sys = {version = "0.59.0", features = ["Win32_Security_Cryptography"] }
