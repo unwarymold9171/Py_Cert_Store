@@ -18,10 +18,10 @@ from cryptography import x509 # This feature is not working currently # Optional
 
 key_usage_oid = x509.OID_KEY_USAGE
 
-certificate = py_cert_store.find_windows_cert_by_extention(
+certificate = py_cert_store.find_windows_cert_by_extension(
     store="MY",
-    key_usage_oid=key_usage_oid.dotted_string,
-    extention_value="Digital Signature"
+    extension_oid=key_usage_oid.dotted_string,
+    extension_value="Digital Signature"
 )
 ```
 
