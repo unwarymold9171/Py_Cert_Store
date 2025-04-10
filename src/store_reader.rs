@@ -3,10 +3,9 @@
 #[deny(clippy::panic)]
 
 use std::collections::HashMap;
-
 use pyo3::prelude::*; // TODO: properly import this module
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
-// use pyo3::types::IntoPyDict; // TODO: Look into having a enum that is converted to a PyObject automatically
+use pyo3::types::{PyString, PyBytes};
 use windows_sys::Win32::Security::Cryptography;
 
 use crate::windows_store::cert_store::CertStore;
@@ -25,7 +24,7 @@ use crate::exceptions::CertNotExportable;
 #[pyo3(signature = (store="My", extension_oid=None, extension_value=None))]
 /// Find a certificate in the Windows Certificate Store by its extension
 #[allow(unused_variables)]
-pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, extension_value:Option<&str>) -> PyResult<HashMap<String, String>> {
+pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, extension_value:Option<&str>) -> PyResult<HashMap<String, PyObject>> {
     if !cfg!(windows) {
         return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
     }
@@ -67,7 +66,7 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
 
     }
 
-    let mut output_dict: HashMap<String, String> = HashMap::new();
+    let mut output_dict: HashMap<String, PyObject> = HashMap::new();
 
     match targeted_cert {
         None => {
@@ -88,29 +87,24 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             }
 
             let friendly_name = cert.friendly_name().unwrap_or("".to_string());
-            output_dict.insert("FriendlyName".to_string(), friendly_name);
+            output_dict.insert("FriendlyName".to_string(), create_python_string(&friendly_name));
 
+            // TODO: Subject
 
-            let private_options = match cert.private_key() {
-                Err(_) => {
-                    return Err(PyRuntimeError::new_err("Could not get the private key."));
-                },
-                Ok(private_key) => private_key
-            };
-            // let private = private_options.acquire().unwrap();
+            // TODO: Issuer
 
-            // match private {
-            //     PrivateKey::CryptProv(_) => {
-            //         println!("CryptKey");
-            //         // TODO: I believe this is an error state here
-            //     },
-            //     PrivateKey::NcryptKey(key) => {
-            //         println!("NcryptKey");
-            //         // TODO: This is what the sample is
-            //     }
-            // }
+            // TODO: Valid From
 
+            // TODO: Valid To
 
+            let private_options = cert.private_key().map_err(|_| {
+                PyRuntimeError::new_err("Could not get the private key.")
+            })?;
+            // TODO: Check if this is the correct output value.
+            // I am unable to test this without pulling code from another project that returns the private key.
+            //
+            // Milestone #1 - Get an initial testable version of the code working (Current progress)
+            output_dict.insert("cert".to_string(), create_python_bytes(&private_options.as_slice()));
 
             return Ok(output_dict);
         }
@@ -118,4 +112,16 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
 
     // Err(PyRuntimeError::new_err("Invalid state reached."))
 
+}
+
+fn create_python_string(friendly_name: &str) -> PyObject {
+    Python::with_gil(|py| {
+        PyString::new(py, friendly_name).into()
+    })
+}
+
+fn create_python_bytes(private_key: &[u8]) -> PyObject {
+    Python::with_gil(|py| {
+        PyBytes::new(py, private_key).into()
+    })
 }
