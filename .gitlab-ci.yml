@@ -1,0 +1,43 @@
+stages:
+  - build
+  - release
+
+variables:
+  MATURIN_VERSION: "v1.7.8"
+  DIST_DIR: "dist"
+
+.windows:
+  stage: build
+  tags:
+    - windows
+  script:
+    - choco install python --version 3.x
+    - pip install maturin==$MATURIN_VERSION
+    - maturin build --release --out $DIST_DIR --find-interpreter --target $TARGET
+  artifacts:
+    paths:
+      - $DIST_DIR
+
+windows_x64:
+  extends: .windows
+  variables:
+    TARGET: "x86_64"
+
+windows_x86:
+  extends: .windows
+  variables:
+    TARGET: "x86"
+
+release:
+  stage: release
+  script:
+    - mkdir -p artifacts
+    - cp -r $DIST_DIR/* artifacts/
+    - maturin upload --non-interactive --skip-existing artifacts/*
+  dependencies:
+    - windows_x64
+    - windows_x86
+  only:
+    - tags
+  variables:
+    MATURIN_PYPI_TOKEN: "$PYPI_API_TOKEN"
