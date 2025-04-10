@@ -31,7 +31,6 @@ macro_rules! inner_impl {
 
 pub mod cert_context;
 pub mod cert_store;
-// pub mod cert_extention;
 
 trait Inner<T> {
     unsafe fn from_inner(t: T) -> Self;

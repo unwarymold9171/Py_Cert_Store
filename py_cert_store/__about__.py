@@ -8,5 +8,5 @@ __all__ = {
 
 __version__ = "0.1.0"
 
-__author__ = "Unwarymold9171 and individual contributers"
+__author__ = "Unwarymold9171 and individual contributors"
 __copyright__ = f"Copyright 2024-2025 {__author__}"

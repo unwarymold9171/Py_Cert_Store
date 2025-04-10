@@ -18,7 +18,7 @@ impl Clone for CertContext {
 
 inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 
-// May want to make this a python class and allow some of the functions to be called from python (like extentions)
+// May want to make this a python class and allow some of the functions to be called from python (like extensions)
 impl CertContext {
     // NOTE: This function may be needed to provide private bytes for the certificate
     // #[allow(dead_code)]
@@ -145,10 +145,10 @@ impl CertContext {
         Ok(key_spec == Cryptography::AT_KEYEXCHANGE)
     }
 
-    pub fn has_extention_with_property(&self, extention_oid:*const u8, extention_value:Option<&str>) -> Result<bool> {
+    pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
         unsafe {
             let key_usage = Cryptography::CertFindExtension(
-                extention_oid,
+                extension_oid,
                 (*(*self.0).pCertInfo).cExtension,
                 (*(*self.0).pCertInfo).rgExtension,
             );
@@ -157,7 +157,7 @@ impl CertContext {
                 return Ok(false); // Not finding the target usage should just return false
             }
 
-            match extention_value {
+            match extension_value {
                 Some(value) => {
                     let mut str_sz = 0;
                     let ret = Cryptography::CryptFormatObject(
@@ -165,7 +165,7 @@ impl CertContext {
                         0,
                         0,
                         ptr::null_mut(),
-                        extention_oid,
+                        extension_oid,
                         (*key_usage).Value.pbData,
                         (*key_usage).Value.cbData,
                         ptr::null_mut(),
@@ -183,7 +183,7 @@ impl CertContext {
                         0,
                         0,
                         ptr::null_mut(),
-                        extention_oid,
+                        extension_oid,
                         (*key_usage).Value.pbData,
                         (*key_usage).Value.cbData,
                         buff.as_mut_ptr() as *mut _,

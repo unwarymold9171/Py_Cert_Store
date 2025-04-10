@@ -13,8 +13,7 @@ use crate::windows_store::cert_store::CertStore;
 use crate::windows_store::cert_context::CertContext;
 use crate::exceptions::CertNotExportable;
 
-
-// Replace this with the proper pyo3 import so that python interperets the dictionary right
+// Replace this with the proper pyo3 import so that Python interprets the dictionary correctly
 // #[pyclass]
 // pub enum Value {
 //     String(String),
@@ -23,13 +22,12 @@ use crate::exceptions::CertNotExportable;
 
 
 #[pyfunction]
-#[pyo3(signature = (store="My", extention_oid=None, extention_value=None))]
-/// Find a certificate in the Windows Certificate Store by its extention
+#[pyo3(signature = (store="My", extension_oid=None, extension_value=None))]
+/// Find a certificate in the Windows Certificate Store by its extension
 #[allow(unused_variables)]
-pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, extention_value:Option<&str>) -> PyResult<HashMap<String, String>> {
-    // TODO: Clean these notes and todos
-    if !cfg!(windows){
-        return Err(PyOSError::new_err("The `find_windows_cert_by_extention` function can only called from a Windows computer."));
+pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, extension_value:Option<&str>) -> PyResult<HashMap<String, String>> {
+    if !cfg!(windows) {
+        return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
     }
 
     let certs = CertStore::open_current_user(store).map_err(|_| {
@@ -48,16 +46,14 @@ pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, exte
             Err(_) => continue // Assume that the cert is not valid and jump to the next one
         }
 
-        // TODO: either with python or a hashmap in rust, match the oid from Python's Cryptography x509 to the valid oid in windows
-        // let extention_oid = match extention_oid {
-        //     Some(oid) => oid,
-        //     None => {
-        //         // TODO: do not throw an error here, but skip the check
-        //         return Err(PyRuntimeError::new_err("No extention OID provided."));
-        //     }
-        // };
+        // TODO: Either with Python or a HashMap in Rust, match the OID from Python's Cryptography x509 to the valid OID in Windows
+        // let extension_oid = match extension_oid {
+        //     Some(oid) => {
+        //     },
+        //     None => {}
+        // }
 
-        match cert.has_extention_with_property(Cryptography::szOID_KEY_USAGE, extention_value) { // TODO: Alter this function to take a parameter
+        match cert.has_extension_with_property(Cryptography::szOID_KEY_USAGE, extension_value) { // TODO: Alter this function to take other parameters
             Ok(has) => {
                 if has {
                     targeted_cert = Some(cert);
@@ -73,11 +69,9 @@ pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, exte
 
     let mut output_dict: HashMap<String, String> = HashMap::new();
 
-    println!("Target Cert match case reached.");
-
     match targeted_cert {
         None => {
-            return Err(PyRuntimeError::new_err("No Valid Certificates found."));
+            return Err(PyRuntimeError::new_err("No valid certificates found."));
         },
         Some(cert) => {
             match cert.is_exportable() {
@@ -87,7 +81,7 @@ pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, exte
                     }
                 },
                 Err(_) => {
-                    return Err(PyRuntimeError::new_err("Could not determine if the certificate is exportable."));
+                    return Err(PyRuntimeError::new_err("Unable to determine if the certificate is exportable."));
                     // NOTE: may change this error to a custom error
                 }
 
@@ -105,31 +99,23 @@ pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, exte
             };
             // let private = private_options.acquire().unwrap();
 
-    //         match private {
-    //             PrivateKey::CryptProv(_) => {
-    //                 println!("CryptKey");
-    //                 // TODO: I believe this is an error state here
-    //             },
-    //             PrivateKey::NcryptKey(key) => {
-    //                 println!("NcryptKey");
-    //                 // TODO: This is what the sample is
-    //             }
-    //         }
+            // match private {
+            //     PrivateKey::CryptProv(_) => {
+            //         println!("CryptKey");
+            //         // TODO: I believe this is an error state here
+            //     },
+            //     PrivateKey::NcryptKey(key) => {
+            //         println!("NcryptKey");
+            //         // TODO: This is what the sample is
+            //     }
+            // }
 
-            // TODO: The output will be a dictionary of the certificate's properties (friendly name, private key, public key, etc.)
-            // let output_dict: Vec<(&str, PyObject)> = vec![
-            //     ("Friendly Name", match friendly_name.into_pyobject(py){
-            //         Ok(obj) => obj,
-            //         Err(_) => "".to_string().into_pyobject(py).unwrap()
-            //     }),
-            // ];
-            // let dict = output_dict.into_py_dict(py);
 
-            // return Ok("Found a certificate.".to_string());
-            
+
             return Ok(output_dict);
         }
     }
 
-    // Err(PyRuntimeError::new_err("Invalid State Reached."))
+    // Err(PyRuntimeError::new_err("Invalid state reached."))
+
 }
