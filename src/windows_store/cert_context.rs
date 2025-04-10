@@ -92,22 +92,22 @@ impl CertContext {
         self.get_string(Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE)
     }
 
-    // TODO
+    // TODO: Issue #3
     // pub fn valid_from(&self) -> Result<String> {
     //     self.get_string(Cryptography::CERT_VALID_FROM_PROP_ID)
     // }
 
-    // TODO
+    // TODO: Issue #3
     // pub fn valid_to(&self) -> Result<String> {
     //     self.get_string(Cryptography::CERT_VALID_TO_PROP_ID)
     // }
 
-    // TODO
+    // TODO: Issue #3
     // pub fn issuer(&self) -> Result<String> {
     //     self.get_string(Cryptography::CERT_ISSUER_PROP_ID)
     // }
 
-    // TODO
+    // TODO: Issue #3
     // pub fn subject(&self) -> Result<String> {
     //     self.get_string(Cryptography::CERT_SUBJECT_PROP_ID)
     // }
@@ -115,11 +115,6 @@ impl CertContext {
     pub fn private_key(&self) -> Result<Vec<u8>> {
         self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
     }
-
-    // Do not need this function (probably)
-    // pub fn public_key(&self) -> Result<Vec<u8>> {
-    //     self.get_bytes(Cryptography::CERT_PUBLIC_KEY_PROP_ID)
-    // }
 
     pub fn is_time_valid(&self) -> Result<bool> {
         let ret = unsafe {

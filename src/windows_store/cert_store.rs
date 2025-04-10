@@ -53,8 +53,6 @@ impl <'a> Iterator for CertIter<'a> {
     
 }
 
-// inner_impl!(CertStore, Cryptography::HCERTSTORE); // NOTE: May not need this
-
 impl CertStore {
     pub fn open_current_user(store:&str) -> Result<CertStore> {
         unsafe {
@@ -84,7 +82,4 @@ impl CertStore {
             cur: None
         }
     }
-
-    // TODO: Check the original python module if I want to extend this
-
 }
