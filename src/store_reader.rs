@@ -2,33 +2,36 @@
 #[deny(clippy::expect_used)]
 #[deny(clippy::panic)]
 
-use pyo3::prelude::*;
+use std::collections::HashMap;
+use pyo3::prelude::*; // TODO: properly import this module
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
-// use pyo3::types::IntoPyDict; // May need this?
+use pyo3::types::{PyString, PyBytes};
 use windows_sys::Win32::Security::Cryptography;
 
 use crate::windows_store::cert_store::CertStore;
 use crate::windows_store::cert_context::CertContext;
 use crate::exceptions::CertNotExportable;
 
+// Replace this with the proper pyo3 import so that Python interprets the dictionary correctly
+// #[pyclass]
+// pub enum Value {
+//     String(String),
+//     Bytes(Vec<u8>), // This needs to be a Cow<[u8]> to be converted to a PyBytes value
+// }
+
 
 #[pyfunction]
-#[pyo3(signature = (store="My", extention_oid=None, extention_value=None))]
-/// Find a certificate in the Windows Certificate Store by its extention
+#[pyo3(signature = (store="My", extension_oid=None, extension_value=None))]
+/// Find a certificate in the Windows Certificate Store by its extension
 #[allow(unused_variables)]
-pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, extention_value:Option<&str>) -> PyResult<String>  {
-    // TODO: Change return type to either Bytes/CertContext/Dict
-    // TODO: Clean these notes and todos
-    if !cfg!(windows){
-        return Err(PyOSError::new_err("The `find_windows_cert_by_extention` function can only called from a Windows computer."));
+pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, extension_value:Option<&str>) -> PyResult<HashMap<String, PyObject>> {
+    if !cfg!(windows) {
+        return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
     }
 
-    let certs = match CertStore::open_current_user(store){
-        Ok(certs) => certs,
-        Err(_) => {
-            return Err(PyRuntimeError::new_err("Could not open the certificate store."));
-        }
-    };
+    let certs = CertStore::open_current_user(store).map_err(|_| {
+        PyRuntimeError::new_err("Could not open the certificate store.")
+    })?;
 
     let mut targeted_cert: Option<CertContext> = None;
 
@@ -39,20 +42,23 @@ pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, exte
                     continue;
                 }
             },
-            Err(_) => {
-                continue;
-            }
+            Err(_) => continue // Assume that the cert is not valid and jump to the next one
         }
 
-        // let extention_oid = match extention_oid {
-        //     Some(oid) => oid,
+        // TODO: Either with Python or a HashMap in Rust, match the OID from Python's Cryptography x509 to the valid OID in Windows
+        // let extension_oid = match extension_oid {
+        //     Some(oid) => {
+        //         // TODO: Move the match statement below to here
+        //     },
         //     None => {
-        //         // TODO: do not throw an error here, but skip the check
-        //         return Err(PyRuntimeError::new_err("No extention OID provided."));
+        //         if !extension_value.is_none() {
+        //             // No extension OID is provided, assume that the user only wants to find a time valid cert
+        //             targeted_cert = Some(cert);
+        //         }
         //     }
-        // };
+        // }
 
-        match cert.has_extention_with_property(Cryptography::szOID_KEY_USAGE, extention_value) { // TODO: Alter this function to take a parameter
+        match cert.has_extension_with_property(Cryptography::szOID_KEY_USAGE, extension_value) { // TODO: Alter this function to take other parameters
             Ok(has) => {
                 if has {
                     targeted_cert = Some(cert);
@@ -66,9 +72,11 @@ pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, exte
 
     }
 
+    let mut output_dict: HashMap<String, PyObject> = HashMap::new();
+
     match targeted_cert {
         None => {
-            return Err(PyRuntimeError::new_err("No Valid Certificates found."));
+            return Err(PyRuntimeError::new_err("No valid certificates found."));
         },
         Some(cert) => {
             match cert.is_exportable() {
@@ -78,47 +86,60 @@ pub fn find_windows_cert_by_extention(store:&str, extention_oid:Option<u8>, exte
                     }
                 },
                 Err(_) => {
-                    return Err(PyRuntimeError::new_err("Could not determine if the certificate is exportable."));
+                    return Err(PyRuntimeError::new_err("Unable to determine if the certificate is exportable."));
                     // NOTE: may change this error to a custom error
                 }
 
             }
 
-            #[allow(unused_variables)] // TODO: Remove this line
-            let friendly_name = match cert.friendly_name() {
-                Ok(name) => name,
-                Err(_) => {
-                    "".to_string()
-                }
-            };
+            let friendly_name = cert.friendly_name().unwrap_or("".to_string());
+            output_dict.insert("FriendlyName".to_string(), create_python_string(&friendly_name));
 
-            // TODO
-    //         let private_options = cert.private_key();
-    //         let private = private_options.acquire().unwrap();
+            // TODO: Subject
+            // let subject = cert.subject().unwrap_or("ERROR".to_string());
+            // println!("Subject: {}", subject);
+            // output_dict.insert("Name".to_string(), create_python_string(&subject));
 
-    //         match private {
-    //             PrivateKey::CryptProv(_) => {
-    //                 println!("CryptKey");
-    //                 // TODO: I believe this is an error state here
-    //             },
-    //             PrivateKey::NcryptKey(key) => {
-    //                 println!("NcryptKey");
-    //                 // TODO: This is what the sample is
-    //             }
-    //         }
+            // TODO: Issuer
+            // let issuer = cert.issuer().unwrap_or("ERROR".to_string());
+            // println!("Issuer: {}", issuer);
+            // output_dict.insert("IssuerName".to_string(), create_python_string(&issuer));
 
-            // TODO: The output will be a dictionary of the certificate's properties (friendly name, private key, public key, etc.)
-            // let output_dict: Vec<(&str, PyObject)> = vec![
-            //     ("Friendly Name", match friendly_name.into_pyobject(py){
-            //         Ok(obj) => obj,
-            //         Err(_) => "".to_string().into_pyobject(py).unwrap()
-            //     }),
-            // ];
-            // let dict = output_dict.into_py_dict(py);
+            // TODO: Valid From
+            // let valid_from = cert.valid_from().unwrap_or("ERROR".to_string());
+            // println!("Valid From: {}", valid_from);
+            // output_dict.insert("EffectiveDateString".to_string(), create_python_string(&valid_from));
 
-            return Ok("Found a certificate.".to_string());
+            // TODO: Valid To
+            // let valid_to = cert.valid_to().unwrap_or("ERROR".to_string());
+            // println!("Valid To: {}", valid_to);
+            // output_dict.insert("ExpirationDateString".to_string(), create_python_string(&valid_to));
+
+            let private_options = cert.private_key().map_err(|_| {
+                PyRuntimeError::new_err("Could not get the private key.")
+            })?;
+            // TODO: Check if this is the correct output value.
+            // I am unable to test this without pulling code from another project that returns the private key.
+            //
+            // Milestone #1 - Get an initial testable version of the code working (Current progress)
+            output_dict.insert("cert".to_string(), create_python_bytes(&private_options.as_slice()));
+
+            return Ok(output_dict);
         }
     }
-    // Ok("".to_string())
 
+    // Err(PyRuntimeError::new_err("Invalid state reached."))
+
+}
+
+fn create_python_string(friendly_name: &str) -> PyObject {
+    Python::with_gil(|py| {
+        PyString::new(py, friendly_name).into()
+    })
+}
+
+fn create_python_bytes(private_key: &[u8]) -> PyObject {
+    Python::with_gil(|py| {
+        PyBytes::new(py, private_key).into()
+    })
 }

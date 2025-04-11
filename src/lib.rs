@@ -13,7 +13,7 @@ use exceptions::CertNotExportable;
 #[pymodule]
 fn py_cert_store(py:Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
-    m.add_function(wrap_pyfunction!(store_reader::find_windows_cert_by_extention, m)?)?;
+    m.add_function(wrap_pyfunction!(store_reader::find_windows_cert_by_extension, m)?)?;
     m.add("CertNotExportable", py.get_type::<CertNotExportable>())?;
     Ok(())
 }
