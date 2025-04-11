@@ -23,65 +23,62 @@ impl CertContext {
     // NOTE: This function may be needed to provide private bytes for the certificate
     // #[allow(dead_code)]
     fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
-        unsafe {
-            let mut len = 0;
-            let ret = Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                ptr::null_mut(),
-                &mut len
-            );
+        
+        let mut len = 0;
+        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
+            self.0,
+            prop,
+            ptr::null_mut(),
+            &mut len
+        )};
 
-            if ret == 0 {
-                return Err(Error::last_os_error());
-            }
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
 
-            let mut buf = vec![0u8; len as usize];
-            let ret = Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                buf.as_mut_ptr() as *mut std::ffi::c_void,
-                &mut len
-            );
+        let mut buf = vec![0u8; len as usize];
+        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
+            self.0,
+            prop,
+            buf.as_mut_ptr() as *mut std::ffi::c_void,
+            &mut len
+        )};
 
-            if ret == 0 {
-                return Err(Error::last_os_error());
-            }
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
 
             return Ok(buf);
-        }
     }
 
     fn get_string(&self, prop:u32) -> Result<String> {
-        unsafe {
-            let mut len = 0;
-            let ret = Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                ptr::null_mut(),
-                &mut len
-            );
+        let mut len = 0;
+        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
+            self.0,
+            prop,
+            ptr::null_mut(),
+            &mut len
+        )};
 
-            if ret == 0 {
-                return Err(Error::last_os_error());
-            }
-
-            // len is byte length, and it is being used to allocate to u16 pairs (2 bytes)
-            let amt = (len / 2) as usize;
-            let mut buf = vec![0u16; amt];
-            let ret = Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                buf.as_mut_ptr() as *mut std::ffi::c_void,
-                &mut len
-            );
-
-            if ret == 0 {
-                return Err(Error::last_os_error());
-            }
-
-            return Ok(OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string());
+        if ret == 0 {
+            return Err(Error::last_os_error());
         }
+
+        // len is byte length, and it is being used to allocate to u16 pairs (2 bytes)
+        let amt = (len / 2) as usize;
+        let mut buf = vec![0u16; amt];
+        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
+            self.0,
+            prop,
+            buf.as_mut_ptr() as *mut std::ffi::c_void,
+            &mut len
+        )};
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        return Ok(OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string());
     }
 
     pub fn friendly_name(&self) -> Result<String> {
@@ -146,63 +143,60 @@ impl CertContext {
     }
 
     pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
-        unsafe {
-            let key_usage = Cryptography::CertFindExtension(
-                extension_oid,
-                (*(*self.0).pCertInfo).cExtension,
-                (*(*self.0).pCertInfo).rgExtension,
-            );
+        
+        let key_usage = unsafe { Cryptography::CertFindExtension(
+            extension_oid,
+            (*(*self.0).pCertInfo).cExtension,
+            (*(*self.0).pCertInfo).rgExtension,
+        )};
 
-            if key_usage.is_null() {
-                return Ok(false); // Not finding the target usage should just return false
-            }
+        if key_usage.is_null() {
+            return Ok(false); // Not finding the target usage should just return false
+        }
 
-            match extension_value {
-                Some(value) => {
-                    let mut str_sz = 0;
-                    let ret = Cryptography::CryptFormatObject(
-                        Cryptography::X509_ASN_ENCODING,
-                        0,
-                        0,
-                        ptr::null_mut(),
-                        extension_oid,
-                        (*key_usage).Value.pbData,
-                        (*key_usage).Value.cbData,
-                        ptr::null_mut(),
-                        &mut str_sz,
-                    );
+        match extension_value {
+            Some(value) => {
+                let mut str_sz = 0;
+                let ret = unsafe { Cryptography::CryptFormatObject(
+                    Cryptography::X509_ASN_ENCODING,
+                    0,
+                    0,
+                    ptr::null_mut(),
+                    extension_oid,
+                    (*key_usage).Value.pbData,
+                    (*key_usage).Value.cbData,
+                    ptr::null_mut(),
+                    &mut str_sz,
+                )};
 
-                    if ret == 0 {
-                        return Err(Error::last_os_error());
-                    }
-
-                    let mut buff = Vec::with_capacity((str_sz / 2) as usize);
-                    buff.set_len((str_sz / 2) as usize);
-                    let ret = Cryptography::CryptFormatObject(
-                        Cryptography::X509_ASN_ENCODING,
-                        0,
-                        0,
-                        ptr::null_mut(),
-                        extension_oid,
-                        (*key_usage).Value.pbData,
-                        (*key_usage).Value.cbData,
-                        buff.as_mut_ptr() as *mut _,
-                        &mut str_sz,
-                    );
-
-                    if ret == 0 {
-                        return Err(Error::last_os_error());
-                    }
-
-                    let buff = String::from_utf16_lossy(&buff);
-                    return Ok(buff.contains(value));
+                if ret == 0 {
+                    return Err(Error::last_os_error());
                 }
-                None => {
-                    return Ok(true);
-                }
-            }
 
-            
+                let mut buff = Vec::with_capacity((str_sz / 2) as usize);
+                unsafe { buff.set_len((str_sz / 2) as usize) };
+                let ret = unsafe { Cryptography::CryptFormatObject(
+                    Cryptography::X509_ASN_ENCODING,
+                    0,
+                    0,
+                    ptr::null_mut(),
+                    extension_oid,
+                    (*key_usage).Value.pbData,
+                    (*key_usage).Value.cbData,
+                    buff.as_mut_ptr() as *mut _,
+                    &mut str_sz,
+                )};
+
+                if ret == 0 {
+                    return Err(Error::last_os_error());
+                }
+
+                let buff = String::from_utf16_lossy(&buff);
+                return Ok(buff.contains(value));
+            }
+            None => {
+                return Ok(true);
+            }
         }
     }
 }
