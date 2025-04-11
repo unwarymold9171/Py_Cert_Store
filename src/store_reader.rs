@@ -48,8 +48,14 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
         // TODO: Either with Python or a HashMap in Rust, match the OID from Python's Cryptography x509 to the valid OID in Windows
         // let extension_oid = match extension_oid {
         //     Some(oid) => {
+        //         // TODO: Move the match statement below to here
         //     },
-        //     None => {}
+        //     None => {
+        //         if !extension_value.is_none() {
+        //             // No extension OID is provided, assume that the user only wants to find a time valid cert
+        //             targeted_cert = Some(cert);
+        //         }
+        //     }
         // }
 
         match cert.has_extension_with_property(Cryptography::szOID_KEY_USAGE, extension_value) { // TODO: Alter this function to take other parameters
@@ -90,12 +96,24 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             output_dict.insert("FriendlyName".to_string(), create_python_string(&friendly_name));
 
             // TODO: Subject
+            // let subject = cert.subject().unwrap_or("ERROR".to_string());
+            // println!("Subject: {}", subject);
+            // output_dict.insert("Name".to_string(), create_python_string(&subject));
 
             // TODO: Issuer
+            // let issuer = cert.issuer().unwrap_or("ERROR".to_string());
+            // println!("Issuer: {}", issuer);
+            // output_dict.insert("IssuerName".to_string(), create_python_string(&issuer));
 
             // TODO: Valid From
+            // let valid_from = cert.valid_from().unwrap_or("ERROR".to_string());
+            // println!("Valid From: {}", valid_from);
+            // output_dict.insert("EffectiveDateString".to_string(), create_python_string(&valid_from));
 
             // TODO: Valid To
+            // let valid_to = cert.valid_to().unwrap_or("ERROR".to_string());
+            // println!("Valid To: {}", valid_to);
+            // output_dict.insert("ExpirationDateString".to_string(), create_python_string(&valid_to));
 
             let private_options = cert.private_key().map_err(|_| {
                 PyRuntimeError::new_err("Could not get the private key.")

@@ -85,9 +85,9 @@ impl CertContext {
         self.get_string(Cryptography::CERT_FRIENDLY_NAME_PROP_ID)
     }
 
-    pub fn name(&self) -> Result<String> {
-        self.get_string(Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE)
-    }
+    // pub fn name(&self) -> Result<String> {
+    //     self.get_string(Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE)
+    // }
 
     // TODO: Issue #3
     // pub fn valid_from(&self) -> Result<String> {
