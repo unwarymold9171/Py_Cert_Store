@@ -1,5 +1,4 @@
 use std::io::{Result, Error};
-use std::os::raw::c_void;
 use std::os::windows::ffi::OsStringExt;
 use std::ptr;
 use std::ffi::OsString;
@@ -21,8 +20,7 @@ inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 
 // May want to make this a python class and allow some of the functions to be called from python (like extensions)
 impl CertContext {
-    // NOTE: This function may be needed to provide private bytes for the certificate
-    // #[allow(dead_code)]
+
     fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
         
         let mut len = 0;
@@ -146,7 +144,7 @@ impl CertContext {
                 self.0,
                 Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
                 Cryptography::CERT_NAME_ISSUER_FLAG,
-                Cryptography::szOID_ORGANIZATION_NAME as *const c_void,
+                Cryptography::szOID_ORGANIZATION_NAME as *const std::ffi::c_void,
                 buf.as_mut_ptr(),
                 len
             )
@@ -171,7 +169,7 @@ impl CertContext {
         return Ok(out_string);
     }
 
-    // Pulls the Name of the certificate 
+    /// Pulls the Name of the certificate.
     pub fn name(&self) -> Result<String> {
         let len = 500;
         let amt = (len / 2) as usize;
@@ -181,7 +179,7 @@ impl CertContext {
                 self.0,
                 Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
                 0,
-                Cryptography::szOID_ORGANIZATION_NAME as *const c_void,
+                Cryptography::szOID_ORGANIZATION_NAME as *const std::ffi::c_void,
                 buf.as_mut_ptr(),
                 len
             )
@@ -206,10 +204,16 @@ impl CertContext {
         return Ok(out_string);
     }
 
+    /// Pulls the private key from the certificate.
+    /// Returns a vector of bytes representing the private key.
+    ///
+    /// This function will cause an error if the certificate is not exportable.
     pub fn private_key(&self) -> Result<Vec<u8>> {
         self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
     }
 
+    /// Checks if the certificate is still valid.
+    /// Returns true if the certificate is valid, false otherwise.
     pub fn is_time_valid(&self) -> Result<bool> {
         let ret = unsafe {
             Cryptography::CertVerifyTimeValidity(
@@ -220,6 +224,8 @@ impl CertContext {
         Ok(ret == 0)
     }
 
+    /// Checks if the certificate is exportable.
+    /// Returns true if the certificate is exportable, false otherwise.
     pub fn is_exportable(&self) -> Result<bool> {
         let mut key_spec = 0;
         let mut len = std::mem::size_of::<u32>() as u32;

@@ -12,18 +12,11 @@ use crate::windows_store::cert_store::CertStore;
 use crate::windows_store::cert_context::CertContext;
 use crate::exceptions::CertNotExportable;
 
-// Replace this with the proper pyo3 import so that Python interprets the dictionary correctly
-// #[pyclass]
-// pub enum Value {
-//     String(String),
-//     Bytes(Vec<u8>), // This needs to be a Cow<[u8]> to be converted to a PyBytes value
-// }
-
 
 #[pyfunction]
 #[pyo3(signature = (store="My", extension_oid=None, extension_value=None))]
 /// Find a certificate in the Windows Certificate Store by its extension
-#[allow(unused_variables)]
+#[allow(unused_variables)] // TODO: The extension OID and value are not used yet
 pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, extension_value:Option<&str>) -> PyResult<HashMap<String, PyObject>> {
     if !cfg!(windows) {
         return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
@@ -101,12 +94,10 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             let issuer = cert.issuer().unwrap_or("".to_string());
             output_dict.insert("IssuerName".to_string(), create_python_string(&issuer));
 
-            // TODO: Valid From
             let valid_from = cert.valid_from().unwrap_or("ERROR".to_string());
             println!("Valid From: {}", valid_from);
             output_dict.insert("EffectiveDateString".to_string(), create_python_string(&valid_from));
 
-            // TODO: Valid To
             let valid_to = cert.valid_to().unwrap_or("ERROR".to_string());
             println!("Valid To: {}", valid_to);
             output_dict.insert("ExpirationDateString".to_string(), create_python_string(&valid_to));
@@ -128,12 +119,14 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
 
 }
 
+/// Helper function to create a Python string from a Rust string
 fn create_python_string(value: &str) -> PyObject {
     Python::with_gil(|py| {
         PyString::new(py, value).into()
     })
 }
 
+/// Helper function to create a Python bytes object from a Rust byte slice
 fn create_python_bytes(value: &[u8]) -> PyObject {
     Python::with_gil(|py| {
         PyBytes::new(py, value).into()
