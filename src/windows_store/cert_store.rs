@@ -1,3 +1,17 @@
+// Copyright 2025 Niky H. (Unwarymold9171)
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStrExt;
 use std::ptr;
@@ -15,7 +29,7 @@ impl Drop for CertStore {
     fn drop(&mut self) {
         unsafe {
             Cryptography::CertCloseStore(
-                self.0, 
+                self.0,
                 0
             );
         }
@@ -50,10 +64,7 @@ impl <'a> Iterator for CertIter<'a> {
             }
         }
     }
-    
 }
-
-// inner_impl!(CertStore, Cryptography::HCERTSTORE); // NOTE: May not need this
 
 impl CertStore {
     pub fn open_current_user(store:&str) -> Result<CertStore> {
@@ -84,7 +95,4 @@ impl CertStore {
             cur: None
         }
     }
-
-    // TODO: Check the original python module if I want to extend this
-
 }
