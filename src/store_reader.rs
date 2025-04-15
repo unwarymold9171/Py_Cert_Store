@@ -128,14 +128,14 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
 
 }
 
-fn create_python_string(friendly_name: &str) -> PyObject {
+fn create_python_string(value: &str) -> PyObject {
     Python::with_gil(|py| {
-        PyString::new(py, friendly_name).into()
+        PyString::new(py, value).into()
     })
 }
 
-fn create_python_bytes(private_key: &[u8]) -> PyObject {
+fn create_python_bytes(value: &[u8]) -> PyObject {
     Python::with_gil(|py| {
-        PyBytes::new(py, private_key).into()
+        PyBytes::new(py, value).into()
     })
 }
