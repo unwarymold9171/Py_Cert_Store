@@ -95,21 +95,21 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             let friendly_name = cert.friendly_name().unwrap_or("".to_string());
             output_dict.insert("FriendlyName".to_string(), create_python_string(&friendly_name));
 
-            let subject = cert.name().unwrap_or("ERROR".to_string());
+            let subject = cert.name().unwrap_or("".to_string());
             output_dict.insert("Name".to_string(), create_python_string(&subject));
 
-            let issuer = cert.issuer().unwrap_or("ERROR".to_string());
+            let issuer = cert.issuer().unwrap_or("".to_string());
             output_dict.insert("IssuerName".to_string(), create_python_string(&issuer));
 
             // TODO: Valid From
-            // let valid_from = cert.valid_from().unwrap_or("ERROR".to_string());
-            // println!("Valid From: {}", valid_from);
-            // output_dict.insert("EffectiveDateString".to_string(), create_python_string(&valid_from));
+            let valid_from = cert.valid_from().unwrap_or("ERROR".to_string());
+            println!("Valid From: {}", valid_from);
+            output_dict.insert("EffectiveDateString".to_string(), create_python_string(&valid_from));
 
             // TODO: Valid To
-            // let valid_to = cert.valid_to().unwrap_or("ERROR".to_string());
-            // println!("Valid To: {}", valid_to);
-            // output_dict.insert("ExpirationDateString".to_string(), create_python_string(&valid_to));
+            let valid_to = cert.valid_to().unwrap_or("ERROR".to_string());
+            println!("Valid To: {}", valid_to);
+            output_dict.insert("ExpirationDateString".to_string(), create_python_string(&valid_to));
 
             let private_options = cert.private_key().map_err(|_| {
                 PyRuntimeError::new_err("Could not get the private key.")

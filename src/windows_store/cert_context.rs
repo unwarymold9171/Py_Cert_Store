@@ -95,14 +95,46 @@ impl CertContext {
     }
 
     // TODO: Issue #3
-    // pub fn valid_from(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_VALID_FROM_PROP_ID)
-    // }
+    pub fn valid_from(&self) -> Result<String> {
+        let file_time = unsafe {
+            (*self.0).pCertInfo.as_ref().unwrap().NotBefore
+        };
+
+        // This is the wrong way to convert the FILETIME to a DateTime
+        // and uses deprecated functions
+        //
+        // Current output: 2104-08-10T18:54:56Z
+        // Should be: 2024-12-16T07:41:21Z
+        let output = chrono::DateTime::<chrono::Utc>::from_utc(
+            chrono::NaiveDateTime::from_timestamp(file_time.dwLowDateTime as i64, file_time.dwHighDateTime as u32),
+            chrono::Utc
+        ).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+            .parse::<String>()
+            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
+
+        return Ok(output);
+    }
 
     // TODO: Issue #3
-    // pub fn valid_to(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_VALID_TO_PROP_ID)
-    // }
+    pub fn valid_to(&self) -> Result<String> {
+        let file_time = unsafe {
+            (*self.0).pCertInfo.as_ref().unwrap().NotAfter
+        };
+
+        // This is the wrong way to convert the FILETIME to a DateTime
+        // and uses deprecated functions
+        //
+        // Current output: 2032-09-18T23:06:40Z
+        // Should be: 2025-12-16T07:41:21Z
+        let output = chrono::DateTime::<chrono::Utc>::from_utc(
+            chrono::NaiveDateTime::from_timestamp(file_time.dwLowDateTime as i64, file_time.dwHighDateTime as u32),
+            chrono::Utc
+        ).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+            .parse::<String>()
+            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
+
+        return Ok(output);
+    }
 
     // TODO: Issue #3
     pub fn issuer(&self) -> Result<String> {
