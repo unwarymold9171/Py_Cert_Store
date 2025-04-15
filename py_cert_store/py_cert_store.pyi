@@ -12,7 +12,7 @@
 # limitations under the License.
 
 
-def find_windows_cert_by_extension(store:str="My", extension_oid:int=None, extension_value:str=None) -> str: # TODO change the return type to a dictionary (or list of dictionarys)
+def find_windows_cert_by_extension(store:str="My", extension_oid:int=None, extension_value:str=None) -> dict[str, str|bytes]:
     """
     Find a certificate in the Windows certificate store by its extension.
 
