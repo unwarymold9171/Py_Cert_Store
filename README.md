@@ -2,7 +2,7 @@
 
 The Python Certificate Store (Py_Cert_Store) is a module designed with the intention of interacting with the windows certificate store.
 
-The initial design of this module is to find a certificate meeting a set of basic criteria (Not expired, contains an extention, and is exportable).
+The initial design of this module is to find a certificate meeting a set of basic criteria (Not expired, contains an extension, and is exportable).
 
 # Note:
 
