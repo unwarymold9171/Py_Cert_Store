@@ -21,7 +21,7 @@ macro_rules! inner_impl {
         //     unsafe fn from_ptr(t: *mut ::std::os::raw::c_void) -> $t {
         //         $t(t as _)
         //     }
-            
+
         //     unsafe fn as_ptr(&self) -> *mut ::std::os::raw::c_void {
         //         self.0 as *mut _
         //     }

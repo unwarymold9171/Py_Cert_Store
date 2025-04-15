@@ -95,11 +95,9 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             output_dict.insert("IssuerName".to_string(), create_python_string(&issuer));
 
             let valid_from = cert.valid_from().unwrap_or("ERROR".to_string());
-            println!("Valid From: {}", valid_from);
             output_dict.insert("EffectiveDateString".to_string(), create_python_string(&valid_from));
 
             let valid_to = cert.valid_to().unwrap_or("ERROR".to_string());
-            println!("Valid To: {}", valid_to);
             output_dict.insert("ExpirationDateString".to_string(), create_python_string(&valid_to));
 
             let private_options = cert.private_key().map_err(|_| {
@@ -108,7 +106,7 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             // TODO: Check if this is the correct output value.
             // I am unable to test this without pulling code from another project that returns the private key.
             //
-            // Milestone #1 - Get an initial testable version of the code working (Current progress)
+            // Milestone #1 - Get an initial testable version of the code working (Ready for PR)
             output_dict.insert("cert".to_string(), create_python_bytes(&private_options.as_slice()));
 
             return Ok(output_dict);

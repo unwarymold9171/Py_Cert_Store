@@ -15,7 +15,7 @@ impl Drop for CertStore {
     fn drop(&mut self) {
         unsafe {
             Cryptography::CertCloseStore(
-                self.0, 
+                self.0,
                 0
             );
         }
@@ -50,7 +50,6 @@ impl <'a> Iterator for CertIter<'a> {
             }
         }
     }
-    
 }
 
 impl CertStore {

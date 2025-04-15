@@ -3,6 +3,8 @@ use std::os::windows::ffi::OsStringExt;
 use std::ptr;
 use std::ffi::OsString;
 use windows_sys::Win32::Security::Cryptography;
+use windows_sys::Win32::System::Time;
+use windows_sys::Win32::Foundation::{SYSTEMTIME, FILETIME};
 
 
 #[derive(Debug)]
@@ -18,11 +20,9 @@ impl Clone for CertContext {
 
 inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 
-// May want to make this a python class and allow some of the functions to be called from python (like extensions)
-impl CertContext {
 
+impl CertContext {
     fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
-        
         let mut len = 0;
         let ret = unsafe {
             Cryptography::CertGetCertificateContextProperty(
@@ -54,7 +54,7 @@ impl CertContext {
             return Ok(buf);
     }
 
-    fn get_string(&self, prop:u32) -> Result<String> {
+    fn get_context_string(&self, prop:u32) -> Result<String> {
         let mut len = 0;
         let ret = unsafe {
             Cryptography::CertGetCertificateContextProperty(
@@ -88,54 +88,7 @@ impl CertContext {
         return Ok(OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string());
     }
 
-    pub fn friendly_name(&self) -> Result<String> {
-        self.get_string(Cryptography::CERT_FRIENDLY_NAME_PROP_ID)
-    }
-
-    // TODO: Issue #3
-    pub fn valid_from(&self) -> Result<String> {
-        let file_time = unsafe {
-            (*self.0).pCertInfo.as_ref().unwrap().NotBefore
-        };
-
-        // This is the wrong way to convert the FILETIME to a DateTime
-        // and uses deprecated functions
-        //
-        // Current output: 2104-08-10T18:54:56Z
-        // Should be: 2024-12-16T07:41:21Z
-        let output = chrono::DateTime::<chrono::Utc>::from_utc(
-            chrono::NaiveDateTime::from_timestamp(file_time.dwLowDateTime as i64, file_time.dwHighDateTime as u32),
-            chrono::Utc
-        ).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-            .parse::<String>()
-            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
-
-        return Ok(output);
-    }
-
-    // TODO: Issue #3
-    pub fn valid_to(&self) -> Result<String> {
-        let file_time = unsafe {
-            (*self.0).pCertInfo.as_ref().unwrap().NotAfter
-        };
-
-        // This is the wrong way to convert the FILETIME to a DateTime
-        // and uses deprecated functions
-        //
-        // Current output: 2032-09-18T23:06:40Z
-        // Should be: 2025-12-16T07:41:21Z
-        let output = chrono::DateTime::<chrono::Utc>::from_utc(
-            chrono::NaiveDateTime::from_timestamp(file_time.dwLowDateTime as i64, file_time.dwHighDateTime as u32),
-            chrono::Utc
-        ).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-            .parse::<String>()
-            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
-
-        return Ok(output);
-    }
-
-    // TODO: Issue #3
-    pub fn issuer(&self) -> Result<String> {
+    fn get_name_string(&self, prop: u32) -> Result<String> {
         let len = 500;
         let amt = (len / 2) as usize;
         let mut buf = vec![0u16; amt as usize];
@@ -143,42 +96,7 @@ impl CertContext {
             Cryptography::CertGetNameStringW(
                 self.0,
                 Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
-                Cryptography::CERT_NAME_ISSUER_FLAG,
-                Cryptography::szOID_ORGANIZATION_NAME as *const std::ffi::c_void,
-                buf.as_mut_ptr(),
-                len
-            )
-        };
-
-        // Notes:
-        // Cryptography::CERT_NAME_RDN_TYPE appears to pull everything from the certificate
-        // Cryptography::CERT_NAME_ATTR_TYPE appears to pull the "O" from the certificate
-        // Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE appears to pull the "CN" from the certificate <- This appears to be the correct one to use for the desired output
-        // Cryptography::CERT_NAME_FRIENDLY_DISPLAY_TYPE is the save value pulled by self.friendly_name
-
-
-        if ret == 0 {
-            return Err(Error::last_os_error());
-        }
-
-        let mut out_string = OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string();
-        out_string = out_string.replace("\0", ""); // Remove null terminators
-        out_string = out_string.replace("\r\n", ", "); // Replace new lines with commas
-        // TODO: Finish manupulating the string to get a format that can be read easily by the user (example: "CN=John Doe, OU=Engineering, O=Company, L=City, S=State, C=Country")
-
-        return Ok(out_string);
-    }
-
-    /// Pulls the Name of the certificate.
-    pub fn name(&self) -> Result<String> {
-        let len = 500;
-        let amt = (len / 2) as usize;
-        let mut buf = vec![0u16; amt as usize];
-        let ret = unsafe {
-            Cryptography::CertGetNameStringW(
-                self.0,
-                Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
-                0,
+                prop,
                 Cryptography::szOID_ORGANIZATION_NAME as *const std::ffi::c_void,
                 buf.as_mut_ptr(),
                 len
@@ -191,6 +109,8 @@ impl CertContext {
         // Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE appears to pull the "CN" from the certificate
         // Cryptography::CERT_NAME_FRIENDLY_DISPLAY_TYPE is the save value pulled by self.friendly_name
 
+        // Thoughts:
+        // I may need to itterate over a set of dwtype values and "title" values to get the format I want
 
         if ret == 0 {
             return Err(Error::last_os_error());
@@ -202,6 +122,87 @@ impl CertContext {
         // TODO: Finish manupulating the string to get a format that can be read easily by the user (example: "CN=John Doe, OU=Engineering, O=Company, L=City, S=State, C=Country")
 
         return Ok(out_string);
+    }
+
+    fn get_date_string(&self, time_val:FILETIME) -> Result<String> {
+        let mut system_time = SYSTEMTIME {
+            wYear: 0,
+            wMonth: 0,
+            wDayOfWeek: 0,
+            wDay: 0,
+            wHour: 0,
+            wMinute: 0,
+            wSecond: 0,
+            wMilliseconds: 0,
+        };
+
+        let ret = unsafe {
+            Time::FileTimeToSystemTime(
+                &time_val as *const FILETIME,
+                &mut system_time as *mut SYSTEMTIME,
+            )
+        };
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        let native_date = chrono::NaiveDate::from_ymd_opt(
+            system_time.wYear as i32,
+            system_time.wMonth as u32,
+            system_time.wDay as u32
+        );
+        let native_time = chrono::NaiveTime::from_hms_opt(
+            system_time.wHour as u32,
+            system_time.wMinute as u32,
+            system_time.wSecond as u32
+        );
+
+        let native_datetime = chrono::NaiveDateTime::new(
+            native_date.unwrap(),
+            native_time.unwrap()
+        );
+        let datetime = native_datetime.and_utc();
+
+        let output = datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+            .parse::<String>()
+            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
+
+        return Ok(output);
+    }
+
+    pub fn friendly_name(&self) -> Result<String> {
+        self.get_context_string(Cryptography::CERT_FRIENDLY_NAME_PROP_ID)
+    }
+
+    /// Pulls a string representing the valid start date of the certificate.
+    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    pub fn valid_from(&self) -> Result<String> {
+        let file_time = unsafe {
+            (*self.0).pCertInfo.as_ref().unwrap().NotBefore
+        };
+
+        return self.get_date_string(file_time);
+    }
+
+    /// Pulls a string representing the expiration date of the certificate.
+    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    pub fn valid_to(&self) -> Result<String> {
+        let file_time = unsafe {
+            (*self.0).pCertInfo.as_ref().unwrap().NotAfter
+        };
+
+        return self.get_date_string(file_time);
+    }
+
+    /// Pulls the Issuer of the certificate.
+    pub fn issuer(&self) -> Result<String> {
+        return self.get_name_string(Cryptography::CERT_NAME_ISSUER_FLAG);
+    }
+
+    /// Pulls the Name of the certificate.
+    pub fn name(&self) -> Result<String> {
+        return self.get_name_string(0);
     }
 
     /// Pulls the private key from the certificate.
@@ -246,7 +247,6 @@ impl CertContext {
     }
 
     pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
-        
         let key_usage = unsafe {
             Cryptography::CertFindExtension(
                 extension_oid,
