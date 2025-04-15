@@ -1,4 +1,5 @@
 use std::io::{Result, Error};
+use std::os::raw::c_void;
 use std::os::windows::ffi::OsStringExt;
 use std::ptr;
 use std::ffi::OsString;
@@ -25,24 +26,28 @@ impl CertContext {
     fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
         
         let mut len = 0;
-        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
-            self.0,
-            prop,
-            ptr::null_mut(),
-            &mut len
-        )};
+        let ret = unsafe {
+            Cryptography::CertGetCertificateContextProperty(
+                self.0,
+                prop,
+                ptr::null_mut(),
+                &mut len
+            )
+        };
 
         if ret == 0 {
             return Err(Error::last_os_error());
         }
 
         let mut buf = vec![0u8; len as usize];
-        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
-            self.0,
-            prop,
-            buf.as_mut_ptr() as *mut std::ffi::c_void,
-            &mut len
-        )};
+        let ret = unsafe {
+            Cryptography::CertGetCertificateContextProperty(
+                self.0,
+                prop,
+                buf.as_mut_ptr() as *mut std::ffi::c_void,
+                &mut len
+            )
+        };
 
         if ret == 0 {
             return Err(Error::last_os_error());
@@ -53,12 +58,14 @@ impl CertContext {
 
     fn get_string(&self, prop:u32) -> Result<String> {
         let mut len = 0;
-        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
-            self.0,
-            prop,
-            ptr::null_mut(),
-            &mut len
-        )};
+        let ret = unsafe {
+            Cryptography::CertGetCertificateContextProperty(
+                self.0,
+                prop,
+                ptr::null_mut(),
+                &mut len
+            )
+        };
 
         if ret == 0 {
             return Err(Error::last_os_error());
@@ -67,12 +74,14 @@ impl CertContext {
         // len is byte length, and it is being used to allocate to u16 pairs (2 bytes)
         let amt = (len / 2) as usize;
         let mut buf = vec![0u16; amt];
-        let ret = unsafe { Cryptography::CertGetCertificateContextProperty(
-            self.0,
-            prop,
-            buf.as_mut_ptr() as *mut std::ffi::c_void,
-            &mut len
-        )};
+        let ret = unsafe {
+            Cryptography::CertGetCertificateContextProperty(
+                self.0,
+                prop,
+                buf.as_mut_ptr() as *mut std::ffi::c_void,
+                &mut len
+            )
+        };
 
         if ret == 0 {
             return Err(Error::last_os_error());
@@ -85,10 +94,6 @@ impl CertContext {
         self.get_string(Cryptography::CERT_FRIENDLY_NAME_PROP_ID)
     }
 
-    // pub fn name(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE)
-    // }
-
     // TODO: Issue #3
     // pub fn valid_from(&self) -> Result<String> {
     //     self.get_string(Cryptography::CERT_VALID_FROM_PROP_ID)
@@ -100,14 +105,74 @@ impl CertContext {
     // }
 
     // TODO: Issue #3
-    // pub fn issuer(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_ISSUER_PROP_ID)
-    // }
+    pub fn issuer(&self) -> Result<String> {
+        let len = 500;
+        let amt = (len / 2) as usize;
+        let mut buf = vec![0u16; amt as usize];
+        let ret = unsafe {
+            Cryptography::CertGetNameStringW(
+                self.0,
+                Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
+                Cryptography::CERT_NAME_ISSUER_FLAG,
+                Cryptography::szOID_ORGANIZATION_NAME as *const c_void,
+                buf.as_mut_ptr(),
+                len
+            )
+        };
 
-    // TODO: Issue #3
-    // pub fn subject(&self) -> Result<String> {
-    //     self.get_string(Cryptography::CERT_SUBJECT_PROP_ID)
-    // }
+        // Notes:
+        // Cryptography::CERT_NAME_RDN_TYPE appears to pull everything from the certificate
+        // Cryptography::CERT_NAME_ATTR_TYPE appears to pull the "O" from the certificate
+        // Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE appears to pull the "CN" from the certificate <- This appears to be the correct one to use for the desired output
+        // Cryptography::CERT_NAME_FRIENDLY_DISPLAY_TYPE is the save value pulled by self.friendly_name
+
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        let mut out_string = OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string();
+        out_string = out_string.replace("\0", ""); // Remove null terminators
+        out_string = out_string.replace("\r\n", ", "); // Replace new lines with commas
+        // TODO: Finish manupulating the string to get a format that can be read easily by the user (example: "CN=John Doe, OU=Engineering, O=Company, L=City, S=State, C=Country")
+
+        return Ok(out_string);
+    }
+
+    // Pulls the Name of the certificate 
+    pub fn name(&self) -> Result<String> {
+        let len = 500;
+        let amt = (len / 2) as usize;
+        let mut buf = vec![0u16; amt as usize];
+        let ret = unsafe {
+            Cryptography::CertGetNameStringW(
+                self.0,
+                Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
+                0,
+                Cryptography::szOID_ORGANIZATION_NAME as *const c_void,
+                buf.as_mut_ptr(),
+                len
+            )
+        };
+
+        // Notes:
+        // Cryptography::CERT_NAME_RDN_TYPE appears to pull everything from the certificate
+        // Cryptography::CERT_NAME_ATTR_TYPE appears to pull the "O" from the certificate
+        // Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE appears to pull the "CN" from the certificate
+        // Cryptography::CERT_NAME_FRIENDLY_DISPLAY_TYPE is the save value pulled by self.friendly_name
+
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        let mut out_string = OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string();
+        out_string = out_string.replace("\0", ""); // Remove null terminators
+        out_string = out_string.replace("\r\n", ", "); // Replace new lines with commas
+        // TODO: Finish manupulating the string to get a format that can be read easily by the user (example: "CN=John Doe, OU=Engineering, O=Company, L=City, S=State, C=Country")
+
+        return Ok(out_string);
+    }
 
     pub fn private_key(&self) -> Result<Vec<u8>> {
         self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
@@ -144,11 +209,13 @@ impl CertContext {
 
     pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
         
-        let key_usage = unsafe { Cryptography::CertFindExtension(
-            extension_oid,
-            (*(*self.0).pCertInfo).cExtension,
-            (*(*self.0).pCertInfo).rgExtension,
-        )};
+        let key_usage = unsafe {
+            Cryptography::CertFindExtension(
+                extension_oid,
+                (*(*self.0).pCertInfo).cExtension,
+                (*(*self.0).pCertInfo).rgExtension,
+            )
+        };
 
         if key_usage.is_null() {
             return Ok(false); // Not finding the target usage should just return false
@@ -157,17 +224,19 @@ impl CertContext {
         match extension_value {
             Some(value) => {
                 let mut str_sz = 0;
-                let ret = unsafe { Cryptography::CryptFormatObject(
-                    Cryptography::X509_ASN_ENCODING,
-                    0,
-                    0,
-                    ptr::null_mut(),
-                    extension_oid,
-                    (*key_usage).Value.pbData,
-                    (*key_usage).Value.cbData,
-                    ptr::null_mut(),
-                    &mut str_sz,
-                )};
+                let ret = unsafe {
+                    Cryptography::CryptFormatObject(
+                        Cryptography::X509_ASN_ENCODING,
+                        0,
+                        0,
+                        ptr::null_mut(),
+                        extension_oid,
+                        (*key_usage).Value.pbData,
+                        (*key_usage).Value.cbData,
+                        ptr::null_mut(),
+                        &mut str_sz,
+                    )
+                };
 
                 if ret == 0 {
                     return Err(Error::last_os_error());
@@ -175,17 +244,19 @@ impl CertContext {
 
                 let mut buff = Vec::with_capacity((str_sz / 2) as usize);
                 unsafe { buff.set_len((str_sz / 2) as usize) };
-                let ret = unsafe { Cryptography::CryptFormatObject(
-                    Cryptography::X509_ASN_ENCODING,
-                    0,
-                    0,
-                    ptr::null_mut(),
-                    extension_oid,
-                    (*key_usage).Value.pbData,
-                    (*key_usage).Value.cbData,
-                    buff.as_mut_ptr() as *mut _,
-                    &mut str_sz,
-                )};
+                let ret = unsafe {
+                    Cryptography::CryptFormatObject(
+                        Cryptography::X509_ASN_ENCODING,
+                        0,
+                        0,
+                        ptr::null_mut(),
+                        extension_oid,
+                        (*key_usage).Value.pbData,
+                        (*key_usage).Value.cbData,
+                        buff.as_mut_ptr() as *mut _,
+                        &mut str_sz,
+                    )
+                };
 
                 if ret == 0 {
                     return Err(Error::last_os_error());

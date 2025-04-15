@@ -95,15 +95,11 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             let friendly_name = cert.friendly_name().unwrap_or("".to_string());
             output_dict.insert("FriendlyName".to_string(), create_python_string(&friendly_name));
 
-            // TODO: Subject
-            // let subject = cert.subject().unwrap_or("ERROR".to_string());
-            // println!("Subject: {}", subject);
-            // output_dict.insert("Name".to_string(), create_python_string(&subject));
+            let subject = cert.name().unwrap_or("ERROR".to_string());
+            output_dict.insert("Name".to_string(), create_python_string(&subject));
 
-            // TODO: Issuer
-            // let issuer = cert.issuer().unwrap_or("ERROR".to_string());
-            // println!("Issuer: {}", issuer);
-            // output_dict.insert("IssuerName".to_string(), create_python_string(&issuer));
+            let issuer = cert.issuer().unwrap_or("ERROR".to_string());
+            output_dict.insert("IssuerName".to_string(), create_python_string(&issuer));
 
             // TODO: Valid From
             // let valid_from = cert.valid_from().unwrap_or("ERROR".to_string());
