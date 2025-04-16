@@ -170,17 +170,14 @@ impl CertContext {
             system_time.wYear as i32,
             system_time.wMonth as u32,
             system_time.wDay as u32
-        );
+        ).ok_or_else(|| Error::new(std::io::ErrorKind::InvalidData, "Invalid date components"))?;
         let native_time = chrono::NaiveTime::from_hms_opt(
             system_time.wHour as u32,
             system_time.wMinute as u32,
             system_time.wSecond as u32
-        );
+        ).ok_or_else(|| Error::new(std::io::ErrorKind::InvalidData, "Invalid date components"))?;
 
-        let native_datetime = chrono::NaiveDateTime::new(
-            native_date.unwrap(), // TODO: Clipy is set to deny unwrap
-            native_time.unwrap() // TODO: Clipy is set to deny unwrap
-        );
+        let native_datetime = chrono::NaiveDateTime::new(native_date, native_time);
         let datetime = native_datetime.and_utc();
 
         let output = datetime.format("%m/%d/%Y %I:%M:%S %p").to_string();
