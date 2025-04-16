@@ -4,12 +4,19 @@ build-backend = "maturin"
 
 [project]
 name = "py_cert_store"
+readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+license = "Apache-2.0 license"
 dynamic = ["version"]
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
+
+[project.urls]
+Homepage = "https://github.com/unwarymold9171/Py_Cert_Store"
+Issues = "https://github.com/unwarymold9171/Py_Cert_Store/issues"
