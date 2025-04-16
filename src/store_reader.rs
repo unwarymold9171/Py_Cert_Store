@@ -1,4 +1,5 @@
 // Copyright 2025 Niky H. (Unwarymold9171)
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,6 +33,9 @@ use crate::exceptions::CertNotExportable;
 /// Find a certificate in the Windows Certificate Store by its extension
 #[allow(unused_variables)] // TODO: The extension OID and value are not used yet
 pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, extension_value:Option<&str>) -> PyResult<HashMap<String, PyObject>> {
+    // TODO: Change the output of this function to a vector of dictionaries. Since this currently only returns the first cert found that matches the criteria.
+    // The only reason there could be multiple certs (in the case this is designed for) would be if the user has been issued new certs, and the old certs are still valid.
+    // While this should not cause issues, it may be worth considering to return all certs that match the criteria.
     if !cfg!(windows) {
         return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
     }
@@ -120,7 +124,9 @@ pub fn find_windows_cert_by_extension(store:&str, extension_oid:Option<u8>, exte
             // TODO: Check if this is the correct output value.
             // I am unable to test this without pulling code from another project that returns the private key.
             //
-            // Milestone #1 - Get an initial testable version of the code working (Ready for PR)
+            // Milestone #1 - Get an initial testable version of the code working (Complete)
+            // 
+            // This appears to be returning a diffrent value each time it is called, this should not be the case.
             output_dict.insert("cert".to_string(), create_python_bytes(&private_options.as_slice()));
 
             return Ok(output_dict);

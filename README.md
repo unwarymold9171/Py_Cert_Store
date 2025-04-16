@@ -1,3 +1,8 @@
+[![CI](https://github.com/unwarymold9171/Py_Cert_Store/actions/workflows/CI.yml/badge.svg)](https://github.com/unwarymold9171/Py_Cert_Store/actions/workflows/CI.yml)
+![PyPI](https://img.shields.io/pypi/v/py_cert_store?link=https%3A%2F%2Fpypi.org%2Fproject%2Fpy-cert-store%2F)
+<!-- ![PyPI - Downloads](https://img.shields.io/pypi/dm/py_cert_store) -->
+<!-- The downloads badge seems to not be working at this time -->
+
 # Python Certificate Store
 
 The Python Certificate Store (Py_Cert_Store) is a module designed with the intention of interacting with the windows certificate store.

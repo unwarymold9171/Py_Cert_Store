@@ -1,4 +1,5 @@
 // Copyright 2025 Niky H. (Unwarymold9171)
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+#[deny(clippy::unwrap_used)]
+#[deny(clippy::expect_used)]
+#[deny(clippy::panic)]
 
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStringExt;
@@ -173,14 +178,12 @@ impl CertContext {
         );
 
         let native_datetime = chrono::NaiveDateTime::new(
-            native_date.unwrap(),
-            native_time.unwrap()
+            native_date.unwrap(), // TODO: Clipy is set to deny unwrap
+            native_time.unwrap() // TODO: Clipy is set to deny unwrap
         );
         let datetime = native_datetime.and_utc();
 
-        let output = datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-            .parse::<String>()
-            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
+        let output = datetime.format("%m/%d/%Y %I:%M:%S %p").to_string();
 
         return Ok(output);
     }
@@ -190,39 +193,40 @@ impl CertContext {
     }
 
     /// Pulls a string representing the valid start date of the certificate.
-    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    /// Returns a string in the format of "MM/DD/YYYY HH:MM:SS AM/PM"
     pub fn valid_from(&self) -> Result<String> {
         let file_time = unsafe {
             (*self.0).pCertInfo.as_ref().unwrap().NotBefore
         };
 
-        return self.get_date_string(file_time);
+        self.get_date_string(file_time)
     }
 
     /// Pulls a string representing the expiration date of the certificate.
-    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    /// Returns a string in the format of "MM/DD/YYYY HH:MM:SS AM/PM"
     pub fn valid_to(&self) -> Result<String> {
         let file_time = unsafe {
             (*self.0).pCertInfo.as_ref().unwrap().NotAfter
         };
 
-        return self.get_date_string(file_time);
+        self.get_date_string(file_time)
     }
 
     /// Pulls the Issuer of the certificate.
     pub fn issuer(&self) -> Result<String> {
-        return self.get_name_string(Cryptography::CERT_NAME_ISSUER_FLAG);
+        self.get_name_string(Cryptography::CERT_NAME_ISSUER_FLAG)
     }
 
     /// Pulls the Name of the certificate.
     pub fn name(&self) -> Result<String> {
-        return self.get_name_string(0);
+        self.get_name_string(0)
     }
 
     /// Pulls the private key from the certificate.
     /// Returns a vector of bytes representing the private key.
     ///
     /// This function will cause an error if the certificate is not exportable.
+    // TODO: The current implementation of this function appears to be wrong.
     pub fn private_key(&self) -> Result<Vec<u8>> {
         self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
     }

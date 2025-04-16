@@ -1,4 +1,5 @@
 // Copyright 2025 Niky H. (Unwarymold9171)
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
 
 #![cfg(windows)]
 
@@ -29,17 +34,6 @@ macro_rules! inner_impl {
                 &mut self.0
             }
         }
-
-        // TODO: This was throwing errors, and is not being used. may remove
-        // impl crate::windows_store::InnerType for $inner {
-        //     unsafe fn from_ptr(t: *mut ::std::os::raw::c_void) -> $t {
-        //         $t(t as _)
-        //     }
-
-        //     unsafe fn as_ptr(&self) -> *mut ::std::os::raw::c_void {
-        //         self.0 as *mut _
-        //     }
-        // }
     };
 }
 
