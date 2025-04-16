@@ -182,9 +182,7 @@ impl CertContext {
         );
         let datetime = native_datetime.and_utc();
 
-        let output = datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-            .parse::<String>()
-            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
+        let output = datetime.format("%m/%d/%Y %I:%M:%S %p").to_string();
 
         return Ok(output);
     }
@@ -194,7 +192,7 @@ impl CertContext {
     }
 
     /// Pulls a string representing the valid start date of the certificate.
-    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    /// Returns a string in the format of "MM/DD/YYYY HH:MM:SS AM/PM"
     pub fn valid_from(&self) -> Result<String> {
         let file_time = unsafe {
             (*self.0).pCertInfo.as_ref().unwrap().NotBefore
@@ -204,7 +202,7 @@ impl CertContext {
     }
 
     /// Pulls a string representing the expiration date of the certificate.
-    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    /// Returns a string in the format of "MM/DD/YYYY HH:MM:SS AM/PM"
     pub fn valid_to(&self) -> Result<String> {
         let file_time = unsafe {
             (*self.0).pCertInfo.as_ref().unwrap().NotAfter
