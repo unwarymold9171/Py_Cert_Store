@@ -12,6 +12,10 @@
 // limitations under the License.
 
 
+#[deny(clippy::unwrap_used)]
+#[deny(clippy::expect_used)]
+#[deny(clippy::panic)]
+
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStrExt;
 use std::ptr;

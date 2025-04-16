@@ -12,6 +12,10 @@
 // limitations under the License.
 
 
+#[deny(clippy::unwrap_used)]
+#[deny(clippy::expect_used)]
+#[deny(clippy::panic)]
+
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStringExt;
 use std::ptr;
@@ -173,8 +177,8 @@ impl CertContext {
         );
 
         let native_datetime = chrono::NaiveDateTime::new(
-            native_date.unwrap(),
-            native_time.unwrap()
+            native_date.unwrap(), // TODO: Clipy is set to deny unwrap
+            native_time.unwrap() // TODO: Clipy is set to deny unwrap
         );
         let datetime = native_datetime.and_utc();
 
@@ -196,7 +200,7 @@ impl CertContext {
             (*self.0).pCertInfo.as_ref().unwrap().NotBefore
         };
 
-        return self.get_date_string(file_time);
+        self.get_date_string(file_time)
     }
 
     /// Pulls a string representing the expiration date of the certificate.
@@ -206,23 +210,24 @@ impl CertContext {
             (*self.0).pCertInfo.as_ref().unwrap().NotAfter
         };
 
-        return self.get_date_string(file_time);
+        self.get_date_string(file_time)
     }
 
     /// Pulls the Issuer of the certificate.
     pub fn issuer(&self) -> Result<String> {
-        return self.get_name_string(Cryptography::CERT_NAME_ISSUER_FLAG);
+        self.get_name_string(Cryptography::CERT_NAME_ISSUER_FLAG)
     }
 
     /// Pulls the Name of the certificate.
     pub fn name(&self) -> Result<String> {
-        return self.get_name_string(0);
+        self.get_name_string(0)
     }
 
     /// Pulls the private key from the certificate.
     /// Returns a vector of bytes representing the private key.
     ///
     /// This function will cause an error if the certificate is not exportable.
+    // TODO: The current implementation of this function appears to be wrong.
     pub fn private_key(&self) -> Result<Vec<u8>> {
         self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
     }
