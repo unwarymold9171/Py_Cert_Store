@@ -245,6 +245,8 @@ impl CertContext {
 
     /// Checks if the certificate is exportable.
     /// Returns true if the certificate is exportable, false otherwise.
+    /// 
+    // TODO: Add a check for the CSP key (key_spec != 0 && key_spec != 0xFFFFFFFF)
     pub fn is_exportable(&self) -> Result<bool> {
         let mut key_handle: Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE = 0;
         let mut key_spec = 0;
@@ -294,13 +296,15 @@ impl CertContext {
                     0,
                 )
             };
-        
+
             if ret == 0 {
-                // println!("Key is not exportable.");
-                return Ok(false); // Key is not exportable
+                let error = Error::last_os_error();
+                if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
+                    return Ok(false); // Key is not exportable
+                }
+                return Err(error); // Unexpected error
             }
-        
-            // println!("Key is exportable.");
+
             return Ok(true);
         }
 
