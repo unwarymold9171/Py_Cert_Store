@@ -246,14 +246,19 @@ impl CertContext {
     /// Checks if the certificate is exportable.
     /// Returns true if the certificate is exportable, false otherwise.
     pub fn is_exportable(&self) -> Result<bool> {
+        let mut key_handle: Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE = 0;
         let mut key_spec = 0;
-        let mut len = std::mem::size_of::<u32>() as u32;
+        let mut free_key = 0;
+
+        // Acquire the private key handle
         let ret = unsafe {
-            Cryptography::CertGetCertificateContextProperty(
+            Cryptography::CryptAcquireCertificatePrivateKey(
                 self.0,
-                Cryptography::CERT_KEY_SPEC_PROP_ID,
-                &mut key_spec as *mut _ as *mut std::ffi::c_void,
-                &mut len
+                Cryptography::CRYPT_ACQUIRE_CACHE_FLAG | Cryptography::CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG,
+                ptr::null_mut(),
+                &mut key_handle,
+                &mut key_spec,
+                &mut free_key,
             )
         };
 
@@ -261,7 +266,71 @@ impl CertContext {
             return Err(Error::last_os_error());
         }
 
-        Ok(key_spec == Cryptography::AT_KEYEXCHANGE)
+        // Ensure the key handle is freed if necessary
+        if free_key != 0 {
+            Some(scopeguard::guard(key_handle, |handle| {
+                unsafe {
+                    Cryptography::NCryptFreeObject(handle as Cryptography::NCRYPT_HANDLE);
+                }
+            }))
+        } else {
+            None
+        };
+
+        if key_spec == 0 || key_spec == 0xFFFFFFFF {
+            // println!("Key is a CNG key. Using NCryptExportKey.");
+            let mut key_blob_len = 0;
+        
+            // Attempt to export the key
+            let ret = unsafe {
+                Cryptography::NCryptExportKey(
+                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
+                    0,
+                    Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    0,
+                    &mut key_blob_len,
+                    0,
+                )
+            };
+        
+            if ret == 0 {
+                // println!("Key is not exportable.");
+                return Ok(false); // Key is not exportable
+            }
+        
+            // println!("Key is exportable.");
+            return Ok(true);
+        }
+
+        // TODO: Handle the case where the key is a CSP key (key_spec != 0 && key_spec != 0xFFFFFFFF)
+        // This should be the correct handling for CSP keys, but it needs to be checked
+
+        // Attempt to export the key
+        let mut key_blob_len = 0;
+        let ret = unsafe {
+            Cryptography::CryptExportKey(
+                key_handle,
+                0,
+                Cryptography::PRIVATEKEYBLOB,
+                0,
+                ptr::null_mut(),
+                &mut key_blob_len,
+            )
+        };
+
+        if ret == 0 {
+            let error = Error::last_os_error();
+            if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
+                // println!("Key is not exportable.");
+                return Ok(false); // Key is not exportable
+            }
+            // println!("Error occured on CryptExportKey call.");
+            return Err(error);
+        }
+
+        Ok(true) // Key is exportable
     }
 
     pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
