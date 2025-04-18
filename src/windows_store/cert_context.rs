@@ -146,9 +146,9 @@ impl CertContext {
         ).ok_or_else(|| Error::new(std::io::ErrorKind::InvalidData, "Invalid date components"))?;
 
         let native_datetime = chrono::NaiveDateTime::new(native_date, native_time);
-        let datetime = native_datetime.and_utc();
+        let datetime = native_datetime.and_utc().with_timezone(&chrono::Local);
 
-        let output = datetime.format("%m/%d/%Y %I:%M:%S %p").to_string();
+        let output = datetime.format("%-m/%d/%Y %-I:%M:%S %p").to_string();
 
         return Ok(output);
     }
@@ -348,47 +348,6 @@ impl CertContext {
         };
 
         if key_spec == 0 || key_spec == 0xFFFFFFFF {
-            // println!("Key is a CNG key. Using NCryptExportKey.");
-
-            // DEBUG
-            /*
-            // Retrieve the key storage provider name
-            let mut provider_name_len = 0;
-            let ret = unsafe {
-                Cryptography::NCryptGetProperty(
-                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
-                    Cryptography::NCRYPT_NAME_PROPERTY,
-                    ptr::null_mut(),
-                    0,
-                    &mut provider_name_len,
-                    0,
-                )
-            };
-
-            if ret == 0 {
-                let mut provider_name = vec![0u16; (provider_name_len / 2) as usize];
-                let ret = unsafe {
-                    Cryptography::NCryptGetProperty(
-                        key_handle as Cryptography::NCRYPT_KEY_HANDLE,
-                        Cryptography::NCRYPT_NAME_PROPERTY,
-                        provider_name.as_mut_ptr() as *mut _,
-                        provider_name_len,
-                        &mut provider_name_len,
-                        0,
-                    )
-                };
-
-                if ret == 0 {
-                    let provider_name = String::from_utf16_lossy(&provider_name);
-                    println!("Key storage provider: {}", provider_name);
-                } else {
-                    println!("Failed to retrieve key storage provider name.");
-                }
-            } else {
-                println!("Failed to retrieve key storage provider name length.");
-            }
-            */
-            // END DEBUG
 
             let mut key_blob_len = 0;
 
