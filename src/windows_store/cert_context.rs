@@ -406,13 +406,6 @@ impl CertContext {
                 )
             };
 
-            println!("ret: {:#}", ret);
-
-            // if ret != 0 {
-            //     println!("Certificate not exportable according to NCryptExportKey.");
-            //     return Ok(false); // Key is not exportable
-            // }
-            // return Ok(true);
             if ret == 0 {
                 // println!("Key is exportable.");
                 return Ok(true);

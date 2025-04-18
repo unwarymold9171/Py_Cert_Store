@@ -44,3 +44,7 @@ Re-generating the .p12 from the other provided cert files:
 2. Save the password as an environment variable: `$password = ConvertTo-SecureString -String "pass1234" -AsPlainText -Force`
 3. Enter the import command: `Import-PfxCertificate -FilePath "C:\path\to\certificate.p12" -CertStoreLocation Cert:\CurrentUser\My -Exportable -Password $password`
   1. It is recommend to launch power shell from the folder the `.p12` file is in to simplify the File Path paramater to `"./certificate.p12"` -->
+
+# About the Private Key
+
+This folder should be considered public, even though there is a "private key" here. All files in this folder are for testing purposes and were generated for that sole purpose; no further actions should be taken to prevent the exposure of this data.
