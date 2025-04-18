@@ -38,9 +38,9 @@ Re-generating the .p12 from the other provided cert files:
   2. Click the `Mark this key as exportable` check box
 4. Advance all the way to the `Completing the Certificate Import Wizard` page and click `Finish`
 
-## Winodws: Powershell
+## Windows: PowerShell
 
 1. Open Powershell
-2. Save the password as an enviroment variable: `$password = ConvertTo-SecureString -String "pass1234" -AsPlainText -Force`
+2. Save the password as an environment variable: `$password = ConvertTo-SecureString -String "pass1234" -AsPlainText -Force`
 3. Enter the import command: `Import-PfxCertificate -FilePath "C:\path\to\certificate.p12" -CertStoreLocation Cert:\CurrentUser\My -Exportable -Password $password`
   1. It is recommend to launch power shell from the folder the `.p12` file is in to simplify the File Path paramater to `"./certificate.p12"` -->
