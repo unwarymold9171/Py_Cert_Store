@@ -281,8 +281,49 @@ impl CertContext {
 
         if key_spec == 0 || key_spec == 0xFFFFFFFF {
             // println!("Key is a CNG key. Using NCryptExportKey.");
+
+            // DEBUG
+            /*
+            // Retrieve the key storage provider name
+            let mut provider_name_len = 0;
+            let ret = unsafe {
+                Cryptography::NCryptGetProperty(
+                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
+                    Cryptography::NCRYPT_NAME_PROPERTY,
+                    ptr::null_mut(),
+                    0,
+                    &mut provider_name_len,
+                    0,
+                )
+            };
+
+            if ret == 0 {
+                let mut provider_name = vec![0u16; (provider_name_len / 2) as usize];
+                let ret = unsafe {
+                    Cryptography::NCryptGetProperty(
+                        key_handle as Cryptography::NCRYPT_KEY_HANDLE,
+                        Cryptography::NCRYPT_NAME_PROPERTY,
+                        provider_name.as_mut_ptr() as *mut _,
+                        provider_name_len,
+                        &mut provider_name_len,
+                        0,
+                    )
+                };
+
+                if ret == 0 {
+                    let provider_name = String::from_utf16_lossy(&provider_name);
+                    println!("Key storage provider: {}", provider_name);
+                } else {
+                    println!("Failed to retrieve key storage provider name.");
+                }
+            } else {
+                println!("Failed to retrieve key storage provider name length.");
+            }
+            */
+            // END DEBUG
+
             let mut key_blob_len = 0;
-        
+
             // Attempt to export the key
             let ret = unsafe {
                 Cryptography::NCryptExportKey(
@@ -297,44 +338,56 @@ impl CertContext {
                 )
             };
 
-            if ret == 0 {
-                let error = Error::last_os_error();
-                if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
-                    return Ok(false); // Key is not exportable
-                }
-                return Err(error); // Unexpected error
-            }
+            println!("ret: {:#}", ret);
 
-            return Ok(true);
+            // if ret != 0 {
+            //     println!("Certificate not exportable according to NCryptExportKey.");
+            //     return Ok(false); // Key is not exportable
+            // }
+            // return Ok(true);
+            if ret == 0 {
+                // println!("Key is exportable.");
+                return Ok(true);
+            } else if ret == -2146893783 { // NTE_BAD_KEY_STATE
+                // println!("Key is not exportable (NTE_BAD_KEY_STATE).");
+                return Ok(false);
+            } else {
+                return Err(Error::last_os_error());
+            }
         }
+
+        // This section will need to be modified to handle the CSP key case
+        println!("CSP key detected. Handle not implemented.");
+        // return Err(PyNotImplementedError::new_err("CSP key detected. Handle not implemented.")); // cannot use this error type here
+        return Ok(false); // Passing false for now, but this will be implemented later
 
         // TODO: Handle the case where the key is a CSP key (key_spec != 0 && key_spec != 0xFFFFFFFF)
         // This should be the correct handling for CSP keys, but it needs to be checked
 
         // Attempt to export the key
-        let mut key_blob_len = 0;
-        let ret = unsafe {
-            Cryptography::CryptExportKey(
-                key_handle,
-                0,
-                Cryptography::PRIVATEKEYBLOB,
-                0,
-                ptr::null_mut(),
-                &mut key_blob_len,
-            )
-        };
+        // let mut key_blob_len = 0;
+        // let ret = unsafe {
+        //     Cryptography::CryptExportKey(
+        //         key_handle,
+        //         0,
+        //         Cryptography::PRIVATEKEYBLOB,
+        //         0,
+        //         ptr::null_mut(),
+        //         &mut key_blob_len,
+        //     )
+        // };
 
-        if ret == 0 {
-            let error = Error::last_os_error();
-            if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
-                // println!("Key is not exportable.");
-                return Ok(false); // Key is not exportable
-            }
-            // println!("Error occured on CryptExportKey call.");
-            return Err(error);
-        }
+        // if ret == 0 {
+        //     let error = Error::last_os_error();
+        //     if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
+        //         // println!("Key is not exportable.");
+        //         return Ok(false); // Key is not exportable
+        //     }
+        //     // println!("Error occured on CryptExportKey call.");
+        //     return Err(error);
+        // }
 
-        Ok(true) // Key is exportable
+        // Ok(true) // Key is exportable
     }
 
     pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
