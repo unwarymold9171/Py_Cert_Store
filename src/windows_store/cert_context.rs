@@ -41,38 +41,6 @@ inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 
 
 impl CertContext {
-    fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
-        let mut len = 0;
-        let ret = unsafe {
-            Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                ptr::null_mut(),
-                &mut len
-            )
-        };
-
-        if ret == 0 {
-            return Err(Error::last_os_error());
-        }
-
-        let mut buf = vec![0u8; len as usize];
-        let ret = unsafe {
-            Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                buf.as_mut_ptr() as *mut std::ffi::c_void,
-                &mut len
-            )
-        };
-
-        if ret == 0 {
-            return Err(Error::last_os_error());
-        }
-
-            return Ok(buf);
-    }
-
     fn get_context_string(&self, prop:u32) -> Result<String> {
         let mut len = 0;
         let ret = unsafe {
@@ -224,11 +192,114 @@ impl CertContext {
 
     /// Pulls the private key from the certificate.
     /// Returns a vector of bytes representing the private key.
-    ///
-    /// This function will cause an error if the certificate is not exportable.
-    // TODO: The current implementation of this function appears to be wrong.
     pub fn private_key(&self) -> Result<Vec<u8>> {
-        self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
+        let mut key_handle: Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE = 0;
+        let mut key_spec = 0;
+        let mut free_key = 0;
+    
+        // Acquire the private key handle
+        let ret = unsafe {
+            Cryptography::CryptAcquireCertificatePrivateKey(
+                self.0,
+                Cryptography::CRYPT_ACQUIRE_CACHE_FLAG | Cryptography::CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG,
+                ptr::null_mut(),
+                &mut key_handle,
+                &mut key_spec,
+                &mut free_key,
+            )
+        };
+    
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+    
+        // Ensure the key handle is freed if necessary
+        let _guard = if free_key != 0 {
+            Some(scopeguard::guard(key_handle, |handle| {
+                unsafe {
+                    Cryptography::NCryptFreeObject(handle as Cryptography::NCRYPT_HANDLE);
+                }
+            }))
+        } else {
+            None
+        };
+    
+        let mut key_blob_len = 0;
+    
+        // Export the private key based on the key type
+        if key_spec == 0 || key_spec == 0xFFFFFFFF {
+            // CNG key: Use NCryptExportKey
+            let ret = unsafe {
+                Cryptography::NCryptExportKey(
+                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
+                    0,
+                    Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    0,
+                    &mut key_blob_len,
+                    0,
+                )
+            };
+    
+            if ret != 0 {
+                return Err(Error::last_os_error());
+            }
+    
+            let mut key_blob = vec![0u8; key_blob_len as usize];
+            let ret = unsafe {
+                Cryptography::NCryptExportKey(
+                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
+                    0,
+                    Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
+                    ptr::null_mut(),
+                    key_blob.as_mut_ptr(),
+                    key_blob_len,
+                    &mut key_blob_len,
+                    0,
+                )
+            };
+    
+            if ret != 0 {
+                return Err(Error::last_os_error());
+            }
+    
+            Ok(key_blob)
+        } else {
+            // CSP key: Use CryptExportKey
+            let ret = unsafe {
+                Cryptography::CryptExportKey(
+                    key_handle,
+                    0,
+                    Cryptography::PRIVATEKEYBLOB,
+                    0,
+                    ptr::null_mut(),
+                    &mut key_blob_len,
+                )
+            };
+    
+            if ret == 0 {
+                return Err(Error::last_os_error());
+            }
+    
+            let mut key_blob = vec![0u8; key_blob_len as usize];
+            let ret = unsafe {
+                Cryptography::CryptExportKey(
+                    key_handle,
+                    0,
+                    Cryptography::PRIVATEKEYBLOB,
+                    0,
+                    key_blob.as_mut_ptr(),
+                    &mut key_blob_len,
+                )
+            };
+    
+            if ret == 0 {
+                return Err(Error::last_os_error());
+            }
+    
+            Ok(key_blob)
+        }
     }
 
     /// Checks if the certificate is still valid.
