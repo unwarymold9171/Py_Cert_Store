@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from __future__ import annotations
+from typing import Union, Dict #, List
 
 from .__about__ import __copyright__, __version__, __author__
 from .py_cert_store import *
@@ -23,30 +24,31 @@ __all__ = {
     "__version__",
 }
 
-def get_win_cert(store:str="My", extension_oid:int=None, extension_value:str=None, as_dict:bool=False) -> bytes | dict[str, str|bytes]:
+def get_win_cert(return_as_dict:bool=False, verbose=True) -> Union[bytes, Dict[str, Union[str, bytes]]]:
+    # TODO: The other type of return, once it is implemented
+        # List[bytes], List[Dict[str, Union[str, bytes]]]
+    # TODO: Add aditional parameters to this function. For now it will only have the one parameter, and the others need to be added to the rust function.
+        # user="CurrentUser", return_all=False
+        # :param user: The user to get the certificate from. Default is "CurrentUser".
+        # :param return_all: If True, returns all vlid certificates. Default is False.
     """
     Gets a user's certificate from the Windows certificate store.
 
-    :param store: The name of the certificate store to search in.
-        - Default is "My" (Personal store).
-    :param extension_oid: The object ID of the extension to search for.
-        - This number can be found with the `Cryptography` python package.
-    :param extension_value: The value of the extension to search for.
-        - This is the value of the extension to search for.
-    :param as_dict: If True, return the certificate as a dictionary.
-        - Default is False.
-    
+    :param return_as_dict: If True, returns the certificate(s) as a dictionary, and False returns the certificate bytes only.
+    :param verbose: If True, prints information about the certificate discovered to the console.
+
     :return: The certificate found as `bytes` or a dictionary with the certificate and its properties.
     """
-    certificate = find_windows_cert_by_extension(store=store, extension_oid=extension_oid, extension_value=extension_value)
+    certificate = find_windows_cert_by_extension(extension_value="Digital Signature")
 
     # TODO: Check that this is the style that replicates the original finction this will be replacing
     console_string = f"Certificate: {certificate['FriendlyName']}\n" \
         f"{certificate['Name']}\n" \
         f"Validity: {certificate['EffectiveDateString']} - {certificate['ExpirationDateString']}"
 
-    print(console_string)
+    if verbose:
+        print(console_string)
 
-    if as_dict:
+    if return_as_dict:
         return certificate
     return certificate['cert']
