@@ -1,4 +1,5 @@
 // Copyright 2025 Niky H. (Unwarymold9171)
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,4 +18,4 @@ use pyo3::exceptions::PyException;
 
 
 create_exception!(py_cert_store, CertNotExportable, PyException);
-// create_exception!(py_cert_store, CertStoreError, PyException);
+create_exception!(py_cert_store, CertNotFound, PyException);

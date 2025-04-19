@@ -1,4 +1,5 @@
 // Copyright 2025 Niky H. (Unwarymold9171)
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+#[deny(clippy::unwrap_used)]
+#[deny(clippy::expect_used)]
+#[deny(clippy::panic)]
 
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStringExt;
@@ -36,38 +41,6 @@ inner_impl!(CertContext, *const Cryptography::CERT_CONTEXT);
 
 
 impl CertContext {
-    fn get_bytes(&self, prop:u32) -> Result<Vec<u8>> {
-        let mut len = 0;
-        let ret = unsafe {
-            Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                ptr::null_mut(),
-                &mut len
-            )
-        };
-
-        if ret == 0 {
-            return Err(Error::last_os_error());
-        }
-
-        let mut buf = vec![0u8; len as usize];
-        let ret = unsafe {
-            Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                prop,
-                buf.as_mut_ptr() as *mut std::ffi::c_void,
-                &mut len
-            )
-        };
-
-        if ret == 0 {
-            return Err(Error::last_os_error());
-        }
-
-            return Ok(buf);
-    }
-
     fn get_context_string(&self, prop:u32) -> Result<String> {
         let mut len = 0;
         let ret = unsafe {
@@ -102,40 +75,78 @@ impl CertContext {
         return Ok(OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string());
     }
 
-    fn get_name_string(&self, prop: u32) -> Result<String> {
-        let len = 500;
-        let amt = (len / 2) as usize;
-        let mut buf = vec![0u16; amt as usize];
+    /// Retrieves the name string from the certificate context.
+    /// This function is a helper for `get_name_string` and retrieves a specific name element based on the provided OID and property.
+    /// 
+    /// The reason for this helper function is do to how the win32 CERT_NAME_RDN_TYPE is not able to pull the proceeding elements (C=, S=, L=, O=, OU=, CN=) in a single call.
+    fn get_name_element(&self, attribut_oid:*const u8, prop:u32) -> Result<String> {
         let ret = unsafe {
             Cryptography::CertGetNameStringW(
                 self.0,
-                Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
+                Cryptography::CERT_NAME_ATTR_TYPE,
                 prop,
-                Cryptography::szOID_ORGANIZATION_NAME as *const std::ffi::c_void,
-                buf.as_mut_ptr(),
-                len
+                attribut_oid as *const std::ffi::c_void,
+                ptr::null_mut(),
+                0,
             )
         };
-
-        // Notes:
-        // Cryptography::CERT_NAME_RDN_TYPE appears to pull everything from the certificate
-        // Cryptography::CERT_NAME_ATTR_TYPE appears to pull the "O" from the certificate
-        // Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE appears to pull the "CN" from the certificate
-        // Cryptography::CERT_NAME_FRIENDLY_DISPLAY_TYPE is the save value pulled by self.friendly_name
-
-        // Thoughts:
-        // I may need to itterate over a set of dwtype values and "title" values to get the format I want
 
         if ret == 0 {
             return Err(Error::last_os_error());
         }
 
-        let mut out_string = OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string();
-        out_string = out_string.replace("\0", ""); // Remove null terminators
-        out_string = out_string.replace("\r\n", ", "); // Replace new lines with commas
-        // TODO: Finish manupulating the string to get a format that can be read easily by the user (example: "CN=John Doe, OU=Engineering, O=Company, L=City, S=State, C=Country")
+        let len = ret as usize;
+        let mut buf = vec![0u16; len];
 
-        return Ok(out_string);
+        // Retrieve the name string
+        let ret = unsafe {
+            Cryptography::CertGetNameStringW(
+                self.0,
+                Cryptography::CERT_NAME_ATTR_TYPE,
+                prop,
+                attribut_oid as *const std::ffi::c_void,
+                buf.as_mut_ptr(),
+                len as u32,
+            )
+        };
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        // Convert the wide string to a Rust String
+        let name = OsString::from_wide(&buf[..len - 1]).to_string_lossy().to_string();
+        return Ok(name);
+    }
+
+    /// Retrieves the entire name string from the certificate context.
+    /// This function attempts to clone the equivalent C# code to get the name string.
+    /// It retrieves the name elements (C=, S=, L=, O=, OU=, CN=) and concatenates them into a single string.
+    fn get_name_string(&self, prop: u32) -> Result<String> {
+        // TODO: Check that these are all the elements that are printed by the equivalent C# code
+        let elements = [
+            ("C=", Cryptography::szOID_COUNTRY_NAME),
+            ("S=", Cryptography::szOID_STATE_OR_PROVINCE_NAME),
+            ("L=", Cryptography::szOID_LOCALITY_NAME),
+            ("O=", Cryptography::szOID_ORGANIZATION_NAME),
+            ("OU=", Cryptography::szOID_ORGANIZATIONAL_UNIT_NAME),
+            ("CN=", Cryptography::szOID_COMMON_NAME),
+        ];
+
+        let mut output_string = String::new();
+
+        for &(prefix, oid) in &elements {
+            let name_element = self.get_name_element(oid, prop).unwrap_or(String::new());
+            if !name_element.is_empty() {
+                if !output_string.is_empty(){
+                    output_string.push_str(", ");
+                }
+                output_string.push_str(prefix);
+                output_string.push_str(&name_element);
+            }
+        }
+
+        Ok(output_string)
     }
 
     fn get_date_string(&self, time_val:FILETIME) -> Result<String> {
@@ -165,22 +176,17 @@ impl CertContext {
             system_time.wYear as i32,
             system_time.wMonth as u32,
             system_time.wDay as u32
-        );
+        ).ok_or_else(|| Error::new(std::io::ErrorKind::InvalidData, "Invalid date components"))?;
         let native_time = chrono::NaiveTime::from_hms_opt(
             system_time.wHour as u32,
             system_time.wMinute as u32,
             system_time.wSecond as u32
-        );
+        ).ok_or_else(|| Error::new(std::io::ErrorKind::InvalidData, "Invalid date components"))?;
 
-        let native_datetime = chrono::NaiveDateTime::new(
-            native_date.unwrap(),
-            native_time.unwrap()
-        );
-        let datetime = native_datetime.and_utc();
+        let native_datetime = chrono::NaiveDateTime::new(native_date, native_time);
+        let datetime = native_datetime.and_utc().with_timezone(&chrono::Local);
 
-        let output = datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-            .parse::<String>()
-            .map_err(|_| Error::new(std::io::ErrorKind::InvalidData, "Failed to parse file time"))?;
+        let output = datetime.format("%-m/%d/%Y %-I:%M:%S %p").to_string();
 
         return Ok(output);
     }
@@ -190,41 +196,110 @@ impl CertContext {
     }
 
     /// Pulls a string representing the valid start date of the certificate.
-    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    /// Returns a string in the format of "MM/DD/YYYY HH:MM:SS AM/PM"
     pub fn valid_from(&self) -> Result<String> {
         let file_time = unsafe {
             (*self.0).pCertInfo.as_ref().unwrap().NotBefore
         };
 
-        return self.get_date_string(file_time);
+        self.get_date_string(file_time)
     }
 
     /// Pulls a string representing the expiration date of the certificate.
-    /// Returns a string in the format of "YYYY-MM-DDTHH:MM:SSZ"
+    /// Returns a string in the format of "MM/DD/YYYY HH:MM:SS AM/PM"
     pub fn valid_to(&self) -> Result<String> {
         let file_time = unsafe {
             (*self.0).pCertInfo.as_ref().unwrap().NotAfter
         };
 
-        return self.get_date_string(file_time);
+        self.get_date_string(file_time)
     }
 
     /// Pulls the Issuer of the certificate.
     pub fn issuer(&self) -> Result<String> {
-        return self.get_name_string(Cryptography::CERT_NAME_ISSUER_FLAG);
+        self.get_name_string(Cryptography::CERT_NAME_ISSUER_FLAG)
     }
 
     /// Pulls the Name of the certificate.
     pub fn name(&self) -> Result<String> {
-        return self.get_name_string(0);
+        self.get_name_string(0)
     }
 
-    /// Pulls the private key from the certificate.
-    /// Returns a vector of bytes representing the private key.
-    ///
-    /// This function will cause an error if the certificate is not exportable.
+    /// Pulls the private key from the certificate in PKCS#12 format.
+    /// 
+    /// This attempts to replivate the original code base exports the private key in PKCS#12 format.
     pub fn private_key(&self) -> Result<Vec<u8>> {
-        self.get_bytes(Cryptography::CERT_KEY_PROV_INFO_PROP_ID)
+        let cert_store = unsafe {
+            Cryptography::CertOpenStore(
+                Cryptography::CERT_STORE_PROV_MEMORY,
+                0,
+                0,
+                Cryptography::CERT_STORE_CREATE_NEW_FLAG,
+                ptr::null_mut(),
+            )
+        };
+
+        if cert_store.is_null() {
+            return Err(Error::last_os_error());
+        }
+
+        // Add the certificate to the memory store
+        let ret = unsafe {
+            Cryptography::CertAddCertificateContextToStore(
+                cert_store,
+                self.0,
+                Cryptography::CERT_STORE_ADD_ALWAYS,
+                ptr::null_mut(),
+            )
+        };
+
+        if ret == 0 {
+            unsafe { Cryptography::CertCloseStore(cert_store, 0) };
+            return Err(Error::last_os_error());
+        }
+
+        // Prepare to export the PKCS#12
+        let mut pfx_blob = Cryptography::CRYPT_INTEGER_BLOB {
+            cbData: 0,
+            pbData: ptr::null_mut(),
+        };
+
+        let ret = unsafe {
+            Cryptography::PFXExportCertStoreEx(
+                cert_store,
+                &mut pfx_blob,
+                ptr::null(),
+                ptr::null(),
+                Cryptography::EXPORT_PRIVATE_KEYS,
+            )
+        };
+
+        if ret == 0 {
+            unsafe { Cryptography::CertCloseStore(cert_store, 0) };
+            return Err(Error::last_os_error());
+        }
+
+        // Allocate memory for the PKCS#12 blob
+        let mut buffer = vec![0u8; pfx_blob.cbData as usize];
+        pfx_blob.pbData = buffer.as_mut_ptr();
+
+        let ret = unsafe {
+            Cryptography::PFXExportCertStoreEx(
+                cert_store,
+                &mut pfx_blob,
+                ptr::null(),
+                ptr::null(),
+                Cryptography::EXPORT_PRIVATE_KEYS,
+            )
+        };
+
+        unsafe { Cryptography::CertCloseStore(cert_store, 0) };
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        Ok(buffer)
     }
 
     /// Checks if the certificate is still valid.
@@ -239,25 +314,117 @@ impl CertContext {
         Ok(ret == 0)
     }
 
-    /// Checks if the certificate is exportable.
-    /// Returns true if the certificate is exportable, false otherwise.
-    pub fn is_exportable(&self) -> Result<bool> {
-        let mut key_spec = 0;
-        let mut len = std::mem::size_of::<u32>() as u32;
+    fn is_exportable_csp(&self, key_handle:Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE) -> Result<bool> {
+        println!("CSP Key Detected, Attempting to verify if the key is exportable.");
+        let mut key_blob_len = 0;
         let ret = unsafe {
-            Cryptography::CertGetCertificateContextProperty(
-                self.0,
-                Cryptography::CERT_KEY_SPEC_PROP_ID,
-                &mut key_spec as *mut _ as *mut std::ffi::c_void,
-                &mut len
+            Cryptography::CryptExportKey(
+                key_handle,
+                0,
+                Cryptography::PRIVATEKEYBLOB,
+                0,
+                ptr::null_mut(),
+                &mut key_blob_len,
             )
         };
 
         if ret == 0 {
-            return Err(Error::last_os_error());
+            let error = Error::last_os_error();
+            if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
+                // println!("Key is not exportable.");
+                return Ok(false); // Key is not exportable
+            }
+            // println!("Error occured on CryptExportKey call.");
+            return Err(error);
         }
 
-        Ok(key_spec == Cryptography::AT_KEYEXCHANGE)
+        Ok(true) // Key is exportable
+    }
+
+    fn is_exportable_cnp(&self, key_handle:Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE) -> Result<bool> {
+        let mut key_blob_len = 0;
+
+        // Attempt to export the key
+        let ret = unsafe {
+            Cryptography::NCryptExportKey(
+                key_handle,
+                0,
+                Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                0,
+                &mut key_blob_len,
+                0,
+            )
+        };
+
+        if ret == 0 {
+            // println!("Key is exportable.");
+            return Ok(true);
+        } else if ret == -2146893783 { // NTE_BAD_KEY_STATE
+            // println!("Key is not exportable (NTE_BAD_KEY_STATE).");
+            return Ok(false);
+        } else {
+            return Err(Error::last_os_error());
+        }
+    }
+
+    /// Checks if the certificate is exportable.
+    /// Returns true if the certificate is exportable, false otherwise.
+    /// 
+    // TODO: Add a check for the CSP key (key_spec != 0 && key_spec != 0xFFFFFFFF)
+    pub fn is_exportable(&self) -> Result<bool> {
+        let mut key_handle: Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE = 0;
+        let mut key_spec = 0;
+        let mut free_key = 0;
+
+        // Acquire the private key handle
+        let ret = unsafe {
+            Cryptography::CryptAcquireCertificatePrivateKey(
+                self.0,
+                Cryptography::CRYPT_ACQUIRE_CACHE_FLAG | Cryptography::CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG,
+                ptr::null_mut(),
+                &mut key_handle,
+                &mut key_spec,
+                &mut free_key,
+            )
+        };
+
+        if ret == 0 {
+            let ret = unsafe {
+                Cryptography::CryptAcquireCertificatePrivateKey(
+                    self.0,
+                    Cryptography::CRYPT_ACQUIRE_CACHE_FLAG,
+                    ptr::null_mut(),
+                    &mut key_handle,
+                    &mut key_spec,
+                    &mut free_key,
+                )
+            };
+
+            if ret == 0 {
+                return Err(Error::last_os_error());
+            }
+
+            return self.is_exportable_csp(key_handle);
+        }
+
+        // Ensure the key handle is freed if necessary
+        if free_key != 0 {
+            Some(scopeguard::guard(key_handle, |handle| {
+                unsafe {
+                    Cryptography::NCryptFreeObject(handle as Cryptography::NCRYPT_HANDLE);
+                }
+            }))
+        } else {
+            None
+        };
+
+        if key_spec == 0 || key_spec == 0xFFFFFFFF {
+            return self.is_exportable_cnp(key_handle);
+        }
+
+        return Ok(false);
     }
 
     pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
@@ -320,6 +487,12 @@ impl CertContext {
             None => {
                 return Ok(true);
             }
+        }
+    }
+
+    pub fn close(&self) {
+        unsafe {
+            Cryptography::CertFreeCertificateContext(self.0);
         }
     }
 }

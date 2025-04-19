@@ -1,4 +1,5 @@
 // Copyright 2025 Niky H. (Unwarymold9171)
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+#[deny(clippy::unwrap_used)]
+#[deny(clippy::expect_used)]
+#[deny(clippy::panic)]
 
 use std::io::{Result, Error};
 use std::os::windows::ffi::OsStrExt;
@@ -78,6 +83,28 @@ impl CertStore {
                 Cryptography::CERT_QUERY_ENCODING_TYPE::default(),
                 Cryptography::HCRYPTPROV_LEGACY::default(),
                 Cryptography::CERT_SYSTEM_STORE_CURRENT_USER_ID
+                  << Cryptography::CERT_SYSTEM_STORE_LOCATION_SHIFT,
+                data.as_ptr() as *mut _
+            );
+            if !store.is_null() {
+                Ok(CertStore(store))
+            } else {
+                Err(Error::last_os_error())
+            }
+        }
+    }
+
+    pub fn open_local_machine(store:&str) -> Result<CertStore> {
+        unsafe {
+            let data = OsStr::new(store)
+                .encode_wide()
+                .chain(Some(0))
+                .collect::<Vec<_>>();
+            let store = Cryptography::CertOpenStore(
+                Cryptography::CERT_STORE_PROV_SYSTEM_W,
+                Cryptography::CERT_QUERY_ENCODING_TYPE::default(),
+                Cryptography::HCRYPTPROV_LEGACY::default(),
+                Cryptography::CERT_SYSTEM_STORE_LOCAL_MACHINE_ID
                   << Cryptography::CERT_SYSTEM_STORE_LOCATION_SHIFT,
                 data.as_ptr() as *mut _
             );
