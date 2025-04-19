@@ -11,7 +11,7 @@ The initial design of this module is to find a certificate meeting a set of basi
 
 ## Python Implementation
 
-This code is designed to return a certificate that can be utalized when connecting with the python requests library.
+This code is designed to return a certificate that can be utilized when connecting with the python requests library.
 
 ```python
 from py_cert_store import get_win_cert
