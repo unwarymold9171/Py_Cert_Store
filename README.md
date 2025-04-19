@@ -32,7 +32,7 @@ from py_cert_store import find_windows_cert_by_extension
 from cryptography import x509
 
 valid_certificates = find_windows_cert_by_extension(
-    store="My", user:str="CurrentUser",
+    store="My", user="CurrentUser",
     extension_oid=x509.OID_KEY_USAGE.dotted_string,
     extension_value="Digital Signature"
 )
