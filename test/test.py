@@ -9,8 +9,8 @@ import py_cert_store
 
 rust_cert = py_cert_store.get_win_cert(return_as_dict=True, verbose=False)
 
-print(rust_cert)
-print("")
+# print(rust_cert)
+# print("")
 
 
 from wincert import WinCerts
@@ -18,13 +18,14 @@ from wincert import WinCerts
 with WinCerts() as certs:
     dotnet_cert = certs.get_cert(return_as_dict=True, verbose=False)
 
+
 pass_fail = {
     "FriendlyName": rust_cert["FriendlyName"] == dotnet_cert["FriendlyName"],
     "Name": rust_cert["Name"] == dotnet_cert["Name"],
     "IssuerName": rust_cert["IssuerName"] == dotnet_cert["IssuerName"],
     "EffectiveDateString": rust_cert["EffectiveDateString"] == dotnet_cert["EffectiveDateString"],
     "ExpirationDateString": rust_cert["ExpirationDateString"] == dotnet_cert["ExpirationDateString"],
-    "cert": rust_cert["cert"] == dotnet_cert["cert"],
+    # "cert": rust_cert["cert"] == dotnet_cert["cert"],
 }
 
 if not pass_fail["FriendlyName"]:
@@ -47,8 +48,19 @@ if not pass_fail["ExpirationDateString"]:
     print("Rust ExpirationDateString: ", rust_cert["ExpirationDateString"])
     print(".NET ExpirationDateString: ", dotnet_cert["ExpirationDateString"])
 
+# Cert bytes strings cannot be compared directly since each library will return a different string each time they are run.
+# TODO: Find a way to compare the private key bytes to see if they are the same.
+"""
+if not pass_fail["cert"]:
+    print("")
+    print("Rust cert: ", rust_cert["cert"])
+    print("")
+    print(".NET cert: ", dotnet_cert["cert"])
+    print("")
+
 print("Certificates are equal: ", rust_cert["cert"] == dotnet_cert["cert"])
 print("")
+"""
 
 print("Pass/Fail: ", pass_fail)
 print("All tests pass: ", all(pass_fail.values()))

@@ -136,7 +136,7 @@ impl CertContext {
         let mut output_string = String::new();
 
         for &(prefix, oid) in &elements {
-            let name_element = self.get_name_element(oid, prop)?;
+            let name_element = self.get_name_element(oid, prop).unwrap_or(String::new());
             if !name_element.is_empty() {
                 if !output_string.is_empty(){
                     output_string.push_str(", ");
@@ -225,116 +225,81 @@ impl CertContext {
         self.get_name_string(0)
     }
 
-    /// Pulls the private key from the certificate.
-    /// Returns a vector of bytes representing the private key.
+    /// Pulls the private key from the certificate in PKCS#12 format.
+    /// 
+    /// This attempts to replivate the original code base exports the private key in PKCS#12 format.
     pub fn private_key(&self) -> Result<Vec<u8>> {
-        let mut key_handle: Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE = 0;
-        let mut key_spec = 0;
-        let mut free_key = 0;
-    
-        // Acquire the private key handle
-        let ret = unsafe {
-            Cryptography::CryptAcquireCertificatePrivateKey(
-                self.0,
-                Cryptography::CRYPT_ACQUIRE_CACHE_FLAG | Cryptography::CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG,
+        let cert_store = unsafe {
+            Cryptography::CertOpenStore(
+                Cryptography::CERT_STORE_PROV_MEMORY,
+                0,
+                0,
+                Cryptography::CERT_STORE_CREATE_NEW_FLAG,
                 ptr::null_mut(),
-                &mut key_handle,
-                &mut key_spec,
-                &mut free_key,
             )
         };
-    
+
+        if cert_store.is_null() {
+            return Err(Error::last_os_error());
+        }
+
+        // Add the certificate to the memory store
+        let ret = unsafe {
+            Cryptography::CertAddCertificateContextToStore(
+                cert_store,
+                self.0,
+                Cryptography::CERT_STORE_ADD_ALWAYS,
+                ptr::null_mut(),
+            )
+        };
+
+        if ret == 0 {
+            unsafe { Cryptography::CertCloseStore(cert_store, 0) };
+            return Err(Error::last_os_error());
+        }
+
+        // Prepare to export the PKCS#12
+        let mut pfx_blob = Cryptography::CRYPT_INTEGER_BLOB {
+            cbData: 0,
+            pbData: ptr::null_mut(),
+        };
+
+        let ret = unsafe {
+            Cryptography::PFXExportCertStoreEx(
+                cert_store,
+                &mut pfx_blob,
+                ptr::null(),
+                ptr::null(),
+                Cryptography::EXPORT_PRIVATE_KEYS,
+            )
+        };
+
+        if ret == 0 {
+            unsafe { Cryptography::CertCloseStore(cert_store, 0) };
+            return Err(Error::last_os_error());
+        }
+
+        // Allocate memory for the PKCS#12 blob
+        let mut buffer = vec![0u8; pfx_blob.cbData as usize];
+        pfx_blob.pbData = buffer.as_mut_ptr();
+
+        let ret = unsafe {
+            Cryptography::PFXExportCertStoreEx(
+                cert_store,
+                &mut pfx_blob,
+                ptr::null(),
+                ptr::null(),
+                Cryptography::EXPORT_PRIVATE_KEYS,
+            )
+        };
+
+        unsafe { Cryptography::CertCloseStore(cert_store, 0) };
+
         if ret == 0 {
             return Err(Error::last_os_error());
         }
-    
-        // Ensure the key handle is freed if necessary
-        let _guard = if free_key != 0 {
-            Some(scopeguard::guard(key_handle, |handle| {
-                unsafe {
-                    Cryptography::NCryptFreeObject(handle as Cryptography::NCRYPT_HANDLE);
-                }
-            }))
-        } else {
-            None
-        };
-    
-        let mut key_blob_len = 0;
-    
-        // Export the private key based on the key type
-        if key_spec == 0 || key_spec == 0xFFFFFFFF {
-            // CNG key: Use NCryptExportKey
-            let ret = unsafe {
-                Cryptography::NCryptExportKey(
-                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
-                    0,
-                    Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                    0,
-                    &mut key_blob_len,
-                    0,
-                )
-            };
-    
-            if ret != 0 {
-                return Err(Error::last_os_error());
-            }
-    
-            let mut key_blob = vec![0u8; key_blob_len as usize];
-            let ret = unsafe {
-                Cryptography::NCryptExportKey(
-                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
-                    0,
-                    Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
-                    ptr::null_mut(),
-                    key_blob.as_mut_ptr(),
-                    key_blob_len,
-                    &mut key_blob_len,
-                    0,
-                )
-            };
-    
-            if ret != 0 {
-                return Err(Error::last_os_error());
-            }
-    
-            Ok(key_blob)
-        } else {
-            // CSP key: Use CryptExportKey
-            let ret = unsafe {
-                Cryptography::CryptExportKey(
-                    key_handle,
-                    0,
-                    Cryptography::PRIVATEKEYBLOB,
-                    0,
-                    ptr::null_mut(),
-                    &mut key_blob_len,
-                )
-            };
-    
-            if ret == 0 {
-                return Err(Error::last_os_error());
-            }
-    
-            let mut key_blob = vec![0u8; key_blob_len as usize];
-            let ret = unsafe {
-                Cryptography::CryptExportKey(
-                    key_handle,
-                    0,
-                    Cryptography::PRIVATEKEYBLOB,
-                    0,
-                    key_blob.as_mut_ptr(),
-                    &mut key_blob_len,
-                )
-            };
-    
-            if ret == 0 {
-                return Err(Error::last_os_error());
-            }
-    
-            Ok(key_blob)
-        }
+
+        Ok(buffer)
     }
 
     /// Checks if the certificate is still valid.
