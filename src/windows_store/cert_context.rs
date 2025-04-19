@@ -314,6 +314,61 @@ impl CertContext {
         Ok(ret == 0)
     }
 
+    fn is_exportable_csp(&self, key_handle:Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE) -> Result<bool> {
+        println!("CSP Key Detected, Attempting to verify if the key is exportable.");
+        let mut key_blob_len = 0;
+        let ret = unsafe {
+            Cryptography::CryptExportKey(
+                key_handle,
+                0,
+                Cryptography::PRIVATEKEYBLOB,
+                0,
+                ptr::null_mut(),
+                &mut key_blob_len,
+            )
+        };
+
+        if ret == 0 {
+            let error = Error::last_os_error();
+            if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
+                // println!("Key is not exportable.");
+                return Ok(false); // Key is not exportable
+            }
+            // println!("Error occured on CryptExportKey call.");
+            return Err(error);
+        }
+
+        Ok(true) // Key is exportable
+    }
+
+    fn is_exportable_cnp(&self, key_handle:Cryptography::HCRYPTPROV_OR_NCRYPT_KEY_HANDLE) -> Result<bool> {
+        let mut key_blob_len = 0;
+
+        // Attempt to export the key
+        let ret = unsafe {
+            Cryptography::NCryptExportKey(
+                key_handle,
+                0,
+                Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                0,
+                &mut key_blob_len,
+                0,
+            )
+        };
+
+        if ret == 0 {
+            // println!("Key is exportable.");
+            return Ok(true);
+        } else if ret == -2146893783 { // NTE_BAD_KEY_STATE
+            // println!("Key is not exportable (NTE_BAD_KEY_STATE).");
+            return Ok(false);
+        } else {
+            return Err(Error::last_os_error());
+        }
+    }
+
     /// Checks if the certificate is exportable.
     /// Returns true if the certificate is exportable, false otherwise.
     /// 
@@ -336,7 +391,22 @@ impl CertContext {
         };
 
         if ret == 0 {
-            return Err(Error::last_os_error());
+            let ret = unsafe {
+                Cryptography::CryptAcquireCertificatePrivateKey(
+                    self.0,
+                    Cryptography::CRYPT_ACQUIRE_CACHE_FLAG,
+                    ptr::null_mut(),
+                    &mut key_handle,
+                    &mut key_spec,
+                    &mut free_key,
+                )
+            };
+
+            if ret == 0 {
+                return Err(Error::last_os_error());
+            }
+
+            return self.is_exportable_csp(key_handle);
         }
 
         // Ensure the key handle is freed if necessary
@@ -351,66 +421,10 @@ impl CertContext {
         };
 
         if key_spec == 0 || key_spec == 0xFFFFFFFF {
-
-            let mut key_blob_len = 0;
-
-            // Attempt to export the key
-            let ret = unsafe {
-                Cryptography::NCryptExportKey(
-                    key_handle as Cryptography::NCRYPT_KEY_HANDLE,
-                    0,
-                    Cryptography::BCRYPT_PRIVATE_KEY_BLOB,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                    0,
-                    &mut key_blob_len,
-                    0,
-                )
-            };
-
-            if ret == 0 {
-                // println!("Key is exportable.");
-                return Ok(true);
-            } else if ret == -2146893783 { // NTE_BAD_KEY_STATE
-                // println!("Key is not exportable (NTE_BAD_KEY_STATE).");
-                return Ok(false);
-            } else {
-                return Err(Error::last_os_error());
-            }
+            return self.is_exportable_cnp(key_handle);
         }
 
-        // This section will need to be modified to handle the CSP key case
-        println!("CSP key detected. Handle not implemented.");
-        // return Err(PyNotImplementedError::new_err("CSP key detected. Handle not implemented.")); // cannot use this error type here
-        return Ok(false); // Passing false for now, but this will be implemented later
-
-        // TODO: Handle the case where the key is a CSP key (key_spec != 0 && key_spec != 0xFFFFFFFF)
-        // This should be the correct handling for CSP keys, but it needs to be checked
-
-        // Attempt to export the key
-        // let mut key_blob_len = 0;
-        // let ret = unsafe {
-        //     Cryptography::CryptExportKey(
-        //         key_handle,
-        //         0,
-        //         Cryptography::PRIVATEKEYBLOB,
-        //         0,
-        //         ptr::null_mut(),
-        //         &mut key_blob_len,
-        //     )
-        // };
-
-        // if ret == 0 {
-        //     let error = Error::last_os_error();
-        //     if error.raw_os_error() == Some(0x57) { // ERROR_INVALID_PARAMETER
-        //         // println!("Key is not exportable.");
-        //         return Ok(false); // Key is not exportable
-        //     }
-        //     // println!("Error occured on CryptExportKey call.");
-        //     return Err(error);
-        // }
-
-        // Ok(true) // Key is exportable
+        return Ok(false);
     }
 
     pub fn has_extension_with_property(&self, extension_oid:*const u8, extension_value:Option<&str>) -> Result<bool> {
@@ -473,6 +487,12 @@ impl CertContext {
             None => {
                 return Ok(true);
             }
+        }
+    }
+
+    pub fn close(&self) {
+        unsafe {
+            Cryptography::CertFreeCertificateContext(self.0);
         }
     }
 }

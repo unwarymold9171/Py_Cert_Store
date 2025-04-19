@@ -12,19 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict, Union, List
 
-def find_windows_cert_by_extension(store:str="My", extension_oid:int=None, extension_value:str=None) -> dict[str, str|bytes]:
+
+def find_windows_cert_by_extension(store:str="My", user:str="CurrentUser", extension_oid:str=None, extension_value:str=None) -> List[Dict[str, Union[str,bytes]]]:
     """
     Find a certificate in the Windows certificate store by its extension.
 
     :param store: The name of the certificate store to search in.
-    :param extension_oID: The object ID of the extension to search for.
-        - This number can be found with the `Cryptography` python package.
+        - example: "My", "Root", "CA", etc.
+    :param user: The user to get the certificate from.
+        - example: "CurrentUser", "LocalMachine".
+    :param extension_oID: The object ID string of the extension to search for.
+        - It is recommended to use the dotted string from the python `cryptography` package.
+            - example: `x509.OID_KEY_USAGE.dotted_string`.
     :param extension_value: The value of the extension to search for.
-    :return: The certificate found as `bytes`.
+
+    :return: The return is a dictionary with the following keys:
+        - "cert": The certificate bytes.
+        - "FriendlyName": The friendly name of the certificate.
+        - "Name": The name of the certificate.
+        - "IssuerName": The issuer name of the certificate.
+        - "EffectiveDateString": The effective date of the certificate as a string.
+        - "ExpirationDateString": The expiration date of the certificate as a string.
     """
 
-class CertNotExportable(Exception): # TODO: Make sure that this is the correct class name for the exception
+class CertNotExportable(Exception):
     """
     Raised when the certificate is not exportable.
+    """
+
+class CertNotFound(Exception):
+    """
+    Raised when there is no certificate found with the given parameters.
     """
