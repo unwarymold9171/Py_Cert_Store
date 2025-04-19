@@ -163,10 +163,11 @@ dependencies = [
 
 [[package]]
 name = "py_cert_store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "pyo3",
+ "scopeguard",
  "windows-sys",
 ]
 
@@ -247,6 +248,12 @@ name = "rustversion"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eded382c5f5f786b989652c49544c4877d9f015cc22e145a5ea8ea66c2921cd2"
+
+[[package]]
+name = "scopeguard"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "shlex"

@@ -48,9 +48,3 @@ trait Inner<T> {
     #[allow(dead_code)]
     fn get_mut(&mut self) -> &mut T;
 }
-
-pub trait InnerType {
-    unsafe fn from_ptr(ptr: *mut ::std::os::raw::c_void) -> Self;
-
-    unsafe fn as_ptr(&self) -> *mut ::std::os::raw::c_void;
-}

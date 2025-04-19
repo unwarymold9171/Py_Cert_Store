@@ -94,6 +94,28 @@ impl CertStore {
         }
     }
 
+    pub fn open_local_machine(store:&str) -> Result<CertStore> {
+        unsafe {
+            let data = OsStr::new(store)
+                .encode_wide()
+                .chain(Some(0))
+                .collect::<Vec<_>>();
+            let store = Cryptography::CertOpenStore(
+                Cryptography::CERT_STORE_PROV_SYSTEM_W,
+                Cryptography::CERT_QUERY_ENCODING_TYPE::default(),
+                Cryptography::HCRYPTPROV_LEGACY::default(),
+                Cryptography::CERT_SYSTEM_STORE_LOCAL_MACHINE_ID
+                  << Cryptography::CERT_SYSTEM_STORE_LOCATION_SHIFT,
+                data.as_ptr() as *mut _
+            );
+            if !store.is_null() {
+                Ok(CertStore(store))
+            } else {
+                Err(Error::last_os_error())
+            }
+        }
+    }
+
     pub fn certs(&self) -> CertIter {
         CertIter {
             store: self,
