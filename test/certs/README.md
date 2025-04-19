@@ -33,8 +33,7 @@ Re-generating the .p12 from the other provided cert files:
 1. Double click on a `.p12` file
 2. Install for the current user
 3. Advance to the `Private Key Protection` page of the installer (This page will have a password box)
-  1. Enter in the certificate's pass word (when using the `.p12`s from this repo the password is set to: `pass1234`)
-  2. Click the `Mark this key as exportable` check box
+  1. Enter the certificate's password (when using the `.p12`s from this repo the password is set to: `pass1234`)
 4. Advance all the way to the `Completing the Certificate Import Wizard` page and click `Finish`
 
 ## Windows: PowerShell
