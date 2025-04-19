@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "py_cert_store"
 readme = "README.md"
 requires-python = ">=3.8"
-dependancies = [
+dependencies = [
     "cryptography"
 ]
 classifiers = [

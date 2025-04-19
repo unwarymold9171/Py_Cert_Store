@@ -75,9 +75,9 @@ class WinCerts:
         checks = (
             cert.HasPrivateKey
             and cert.Extensions.get_Item("Key Usage")
-            and hasattr(cert.Extentions.get_item("Key Usage"), "Format")
+            and hasattr(cert.Extensions.get_Item("Key Usage"), "Format")
             and "Digital Signature"
-            in cert.Extentinos.get_Item("Key Usage").Format(True)
+            in cert.Extensions.get_Item("Key Usage").Format(True)
         )
 
         if checks:

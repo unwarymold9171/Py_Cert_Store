@@ -6,15 +6,15 @@ from cryptography import x509
 
 key_usage_oid = x509.OID_KEY_USAGE
 
-alternitive_cert_export = py_cert_store.find_windows_cert_by_extension(
+alternative_cert_export = py_cert_store.find_windows_cert_by_extension(
     store="My",
     extension_oid=key_usage_oid.dotted_string,
     extension_value="Digital Signature"
 )
 
-print(f"Using Certificate: {alternitive_cert_export[0]['FriendlyName']}")
-print(f"{alternitive_cert_export[0]['Name']}")
-print(f"Validity: {alternitive_cert_export[0]['EffectiveDateString']} - {alternitive_cert_export[0]['ExpirationDateString']}")
+print(f"Using Certificate: {alternative_cert_export[0]['FriendlyName']}")
+print(f"{alternative_cert_export[0]['Name']}")
+print(f"Validity: {alternative_cert_export[0]['EffectiveDateString']} - {alternative_cert_export[0]['ExpirationDateString']}")
 print("")
 
 # Case 2: This is the expected use case for this module.

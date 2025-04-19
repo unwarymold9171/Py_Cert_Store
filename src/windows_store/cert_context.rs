@@ -123,7 +123,7 @@ impl CertContext {
     /// This function attempts to clone the equivalent C# code to get the name string.
     /// It retrieves the name elements (C=, S=, L=, O=, OU=, CN=) and concatenates them into a single string.
     fn get_name_string(&self, prop: u32) -> Result<String> {
-        // TODO: Check that these are all the elements that are printed by the equivilent C# code
+        // TODO: Check that these are all the elements that are printed by the equivalent C# code
         let elements = [
             ("C=", Cryptography::szOID_COUNTRY_NAME),
             ("S=", Cryptography::szOID_STATE_OR_PROVINCE_NAME),

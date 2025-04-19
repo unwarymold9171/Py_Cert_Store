@@ -1,7 +1,6 @@
 # Using provided Certs
 
-The certificates in this folder are test files to help test and debug this module, while providing a consistant output each time.
-
+The certificates in this folder are test files to help test and debug this module, while providing a consistent output each time.
 ## Notice
 
 Currently the files in this folder appear to be broken. Use the PowerShell command found in the [Generating a self signed certificate](#generating-a-self-signed-certificate) section.
