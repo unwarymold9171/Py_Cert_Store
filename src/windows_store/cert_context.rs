@@ -75,40 +75,78 @@ impl CertContext {
         return Ok(OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string());
     }
 
-    fn get_name_string(&self, prop: u32) -> Result<String> {
-        let len = 500;
-        let amt = (len / 2) as usize;
-        let mut buf = vec![0u16; amt as usize];
+    /// Retrieves the name string from the certificate context.
+    /// This function is a helper for `get_name_string` and retrieves a specific name element based on the provided OID and property.
+    /// 
+    /// The reason for this helper function is do to how the win32 CERT_NAME_RDN_TYPE is not able to pull the proceeding elements (C=, S=, L=, O=, OU=, CN=) in a single call.
+    fn get_name_element(&self, attribut_oid:*const u8, prop:u32) -> Result<String> {
         let ret = unsafe {
             Cryptography::CertGetNameStringW(
                 self.0,
-                Cryptography::CERT_NAME_RDN_TYPE, // This I knows works: Cryptography::CERT_NAME_RDN_TYPE
+                Cryptography::CERT_NAME_ATTR_TYPE,
                 prop,
-                Cryptography::szOID_ORGANIZATION_NAME as *const std::ffi::c_void,
-                buf.as_mut_ptr(),
-                len
+                attribut_oid as *const std::ffi::c_void,
+                ptr::null_mut(),
+                0,
             )
         };
-
-        // Notes:
-        // Cryptography::CERT_NAME_RDN_TYPE appears to pull everything from the certificate
-        // Cryptography::CERT_NAME_ATTR_TYPE appears to pull the "O" from the certificate
-        // Cryptography::CERT_NAME_SIMPLE_DISPLAY_TYPE appears to pull the "CN" from the certificate
-        // Cryptography::CERT_NAME_FRIENDLY_DISPLAY_TYPE is the save value pulled by self.friendly_name
-
-        // Thoughts:
-        // I may need to itterate over a set of dwtype values and "title" values to get the format I want
 
         if ret == 0 {
             return Err(Error::last_os_error());
         }
 
-        let mut out_string = OsString::from_wide(&buf[..amt-1]).to_string_lossy().to_string();
-        out_string = out_string.replace("\0", ""); // Remove null terminators
-        out_string = out_string.replace("\r\n", ", "); // Replace new lines with commas
-        // TODO: Finish manupulating the string to get a format that can be read easily by the user (example: "CN=John Doe, OU=Engineering, O=Company, L=City, S=State, C=Country")
+        let len = ret as usize;
+        let mut buf = vec![0u16; len];
 
-        return Ok(out_string);
+        // Retrieve the name string
+        let ret = unsafe {
+            Cryptography::CertGetNameStringW(
+                self.0,
+                Cryptography::CERT_NAME_ATTR_TYPE,
+                prop,
+                attribut_oid as *const std::ffi::c_void,
+                buf.as_mut_ptr(),
+                len as u32,
+            )
+        };
+
+        if ret == 0 {
+            return Err(Error::last_os_error());
+        }
+
+        // Convert the wide string to a Rust String
+        let name = OsString::from_wide(&buf[..len - 1]).to_string_lossy().to_string();
+        return Ok(name);
+    }
+
+    /// Retrieves the entire name string from the certificate context.
+    /// This function attempts to clone the equivalent C# code to get the name string.
+    /// It retrieves the name elements (C=, S=, L=, O=, OU=, CN=) and concatenates them into a single string.
+    fn get_name_string(&self, prop: u32) -> Result<String> {
+        // TODO: Check that these are all the elements that are printed by the equivilent C# code
+        let elements = [
+            ("C=", Cryptography::szOID_COUNTRY_NAME),
+            ("S=", Cryptography::szOID_STATE_OR_PROVINCE_NAME),
+            ("L=", Cryptography::szOID_LOCALITY_NAME),
+            ("O=", Cryptography::szOID_ORGANIZATION_NAME),
+            ("OU=", Cryptography::szOID_ORGANIZATIONAL_UNIT_NAME),
+            ("CN=", Cryptography::szOID_COMMON_NAME),
+        ];
+
+        let mut output_string = String::new();
+
+        for &(prefix, oid) in &elements {
+            let name_element = self.get_name_element(oid, prop)?;
+            if !name_element.is_empty() {
+                if !output_string.is_empty(){
+                    output_string.push_str(", ");
+                }
+                output_string.push_str(prefix);
+                output_string.push_str(&name_element);
+            }
+        }
+
+        Ok(output_string)
     }
 
     fn get_date_string(&self, time_val:FILETIME) -> Result<String> {
