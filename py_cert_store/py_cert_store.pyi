@@ -28,7 +28,7 @@ def find_windows_cert_by_extension(store:str="My", user:str="CurrentUser", exten
             - example: `x509.OID_KEY_USAGE.dotted_string`.
     :param extension_value: The value of the extension to search for.
 
-    :return: The return is a dictionary with the following keys:
+    :return: The return is a list of dictionaries with the following keys:
         - "cert": The certificate bytes.
         - "FriendlyName": The friendly name of the certificate.
         - "Name": The name of the certificate.

@@ -17,6 +17,7 @@
 #[deny(clippy::expect_used)]
 #[deny(clippy::panic)]
 
+
 use std::collections::HashMap;
 use pyo3::prelude::*; // TODO: properly import this module
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
@@ -35,32 +36,13 @@ pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Optio
         return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
     }
 
-    let user = user.to_lowercase();
-
-    let certs = match user.as_str() {
-        "currentuser" => {
-            CertStore::open_current_user(store).map_err(|_| {
-                PyRuntimeError::new_err("Could not open the certificate store.")
-            })
-        },
-        "localmachine" => {
-            CertStore::open_local_machine(store).map_err(|_| {
-                PyRuntimeError::new_err("Could not open the certificate store.")
-            })
-        },
-        _ => {
-            return Err(PyOSError::new_err("Invalid user parameter. Use 'CurrentUser' or 'LocalMachine'."));
-        },
-    };
-
-    let certs = match certs {
+    let certs = match get_certs_from_store(store, user) {
         Ok(certs) => certs,
-        Err(_) => {
-            return Err(PyRuntimeError::new_err("Could not open the certificate store."));
+        Err(err) => {
+            return Err(err);
         }
     };
 
-    // TODO: Change the final return type to a vector of dictionaries, since this currently only returns the first cert found that matches the criteria.
     let mut valid_certificates: Vec<CertContext> = Vec::new();
 
     for cert in certs.certs() {
@@ -127,6 +109,38 @@ pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Optio
     }
 
     return Ok(output_dicts);
+}
+
+fn get_certs_from_store(store:&str, user:&str) -> Result<CertStore, PyErr>{
+    if !cfg!(windows) {
+        panic!("The \"get_certs_from_store\" function can only be called from a Windows computer.");
+    }
+
+    let user = user.to_lowercase();
+    let certs = match user.as_str() {
+        "currentuser" => {
+            CertStore::open_current_user(store).map_err(|_| {
+                PyRuntimeError::new_err("Could not open the certificate store.")
+            })
+        },
+        "localmachine" => {
+            CertStore::open_local_machine(store).map_err(|_| {
+                PyRuntimeError::new_err("Could not open the certificate store.")
+            })
+        },
+        _ => {
+            return Err(PyOSError::new_err("Invalid user parameter. Use 'CurrentUser' or 'LocalMachine'."));
+        },
+    };
+
+    let certs = match certs {
+        Ok(certs) => certs,
+        Err(_) => {
+            return Err(PyRuntimeError::new_err("Could not open the certificate store."));
+        }
+    };
+
+    return Ok(certs)
 }
 
 fn build_dict_from_cert(cert: &CertContext) -> PyResult<HashMap<String, PyObject>> {
