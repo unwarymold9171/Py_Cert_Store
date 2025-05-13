@@ -96,6 +96,13 @@ jobs:
             target: x86
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Python 3.14
+        run: |
+          curl -sSL -o python-3.14.exe https://www.python.org/ftp/python/3.14.0/python-3.14.0-amd64.exe
+          ./python-3.14.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
+          python --version
+
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
