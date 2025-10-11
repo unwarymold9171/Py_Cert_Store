@@ -31,7 +31,7 @@ use crate::exceptions::{CertNotExportable, CertNotFound};
 #[pyfunction]
 #[pyo3(signature = (store="My", user="CurrentUser", extension_oid=None, extension_value=None))]
 /// Find a certificate in the Windows Certificate Store by its extension OID and value.
-pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Option<&str>, extension_value:Option<&str>) -> PyResult<Vec<HashMap<String, PyObject>>> {
+pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Option<&str>, extension_value:Option<&str>) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
     if !cfg!(windows) {
         return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
     }
@@ -94,7 +94,7 @@ pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Optio
         return Err(CertNotFound::new_err("No valid certificates found."));
     }
 
-    let mut output_dicts: Vec<HashMap<String, PyObject>> = Vec::new();
+    let mut output_dicts: Vec<HashMap<String, Py<PyAny>>> = Vec::new();
 
     for cert in valid_certificates {
         let output_dict = build_dict_from_cert(&cert).unwrap_or_default();
@@ -113,7 +113,7 @@ pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Optio
 
 #[pyfunction]
 #[pyo3(signature = (store="My", user="CurrentUser"))]
-pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<String, PyObject>>> {
+pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
     if !cfg!(windows) {
         return Err(PyOSError::new_err("The \"find_windows_cert_all\" function can only be called from a Windows computer."));
     }
@@ -150,7 +150,7 @@ pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<Stri
         return Err(CertNotFound::new_err("No valid certificates found."));
     }
 
-    let mut output_dicts: Vec<HashMap<String, PyObject>> = Vec::new();
+    let mut output_dicts: Vec<HashMap<String, Py<PyAny>>> = Vec::new();
 
     for cert in valid_certificates {
         let output_dict = build_dict_from_cert(&cert).unwrap_or_default();
@@ -199,7 +199,7 @@ fn get_certs_from_store(store:&str, user:&str) -> Result<CertStore, PyErr>{
     return Ok(certs)
 }
 
-fn build_dict_from_cert(cert: &CertContext) -> PyResult<HashMap<String, PyObject>> {
+fn build_dict_from_cert(cert: &CertContext) -> PyResult<HashMap<String, Py<PyAny>>> {
     let mut dict = HashMap::new();
 
     match cert.is_exportable() {
@@ -239,15 +239,15 @@ fn build_dict_from_cert(cert: &CertContext) -> PyResult<HashMap<String, PyObject
 }
 
 /// Helper function to create a Python string from a Rust string
-fn create_python_string(value: &str) -> PyObject {
-    Python::with_gil(|py| {
+fn create_python_string(value: &str) -> Py<PyAny> {
+    Python::attach(|py| {
         PyString::new(py, value).into()
     })
 }
 
 /// Helper function to create a Python bytes object from a Rust byte slice
-fn create_python_bytes(value: &[u8]) -> PyObject {
-    Python::with_gil(|py| {
+fn create_python_bytes(value: &[u8]) -> Py<PyAny> {
+    Python::attach(|py| {
         PyBytes::new(py, value).into()
     })
 }
