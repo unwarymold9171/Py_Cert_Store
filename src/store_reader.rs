@@ -111,6 +111,62 @@ pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Optio
     return Ok(output_dicts);
 }
 
+#[pyfunction]
+#[pyo3(signature = (store="My", user="CurrentUser"))]
+pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<String, PyObject>>> {
+    if !cfg!(windows) {
+        return Err(PyOSError::new_err("The \"find_windows_cert_all\" function can only be called from a Windows computer."));
+    }
+
+    let certs = match get_certs_from_store(store, user) {
+        Ok(certs) => certs,
+        Err(err) => {
+            return Err(err);
+        }
+    };
+
+    let mut valid_certificates: Vec<CertContext> = Vec::new();
+
+    for cert in certs.certs() {
+
+        match cert.is_time_valid() {
+            Ok(valid) => {
+                if !valid {
+                    // The certificate is not time valid, so close the certificate and continue to the next one.
+                    cert.close();
+                    continue;
+                }
+            },
+            Err(_) => {
+                // There was an error checking the time validity, so close the certificate and continue to the next one.
+                cert.close();
+                continue
+            }
+        }
+        valid_certificates.push(cert);
+    }
+
+    if valid_certificates.len() == 0 {
+        return Err(CertNotFound::new_err("No valid certificates found."));
+    }
+
+    let mut output_dicts: Vec<HashMap<String, PyObject>> = Vec::new();
+
+    for cert in valid_certificates {
+        let output_dict = build_dict_from_cert(&cert).unwrap_or_default();
+        if !output_dict.is_empty() {
+            output_dicts.push(output_dict);
+        }
+        cert.close();
+    };
+
+    if output_dicts.len() == 0 {
+        return Err(CertNotExportable::new_err("No Exportable certificates found."));
+    }
+
+    return Ok(output_dicts);
+}
+
 fn get_certs_from_store(store:&str, user:&str) -> Result<CertStore, PyErr>{
     if !cfg!(windows) {
         panic!("The \"get_certs_from_store\" function can only be called from a Windows computer.");
