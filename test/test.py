@@ -33,7 +33,7 @@ try:
 except (ModuleNotFoundError, ImportError):
     print("The pythonnet package is not installed. Skipping final verification.")
     print("Install `pythonnet`.")
-    print("If not able to be install this could be due to a too new version of Python. Pythonnet can take some time to catch up to the latest Python version.")
+    print("If not able to be installed, this could be due to a too new version of Python. Pythonnet can take some time to catch up to the latest Python version.")
     print("Exiting test.")
     exit(0)
 
