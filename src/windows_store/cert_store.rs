@@ -116,7 +116,7 @@ impl CertStore {
         }
     }
 
-    pub fn certs(&self) -> CertIter {
+    pub fn certs<'a>(&'a self) -> CertIter<'a> {
         CertIter {
             store: self,
             cur: None
