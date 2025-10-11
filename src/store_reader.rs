@@ -140,13 +140,13 @@ pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<Stri
             Err(_) => {
                 // There was an error checking the time validity, so close the certificate and continue to the next one.
                 cert.close();
-                continue
+                continue;
             }
         }
         valid_certificates.push(cert);
     }
 
-    if valid_certificates.len() == 0 {
+    if valid_certificates.is_empty() {
         return Err(CertNotFound::new_err("No valid certificates found."));
     }
 
@@ -160,7 +160,7 @@ pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<Stri
         cert.close();
     };
 
-    if output_dicts.len() == 0 {
+    if output_dicts.is_empty() {
         return Err(CertNotExportable::new_err("No Exportable certificates found."));
     }
 
@@ -169,7 +169,7 @@ pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<Stri
 
 fn get_certs_from_store(store:&str, user:&str) -> Result<CertStore, PyErr>{
     if !cfg!(windows) {
-        panic!("The \"get_certs_from_store\" function can only be called from a Windows computer.");
+        return Err(PyOSError::new_err("The \"get_certs_from_store\" function can only be called from a Windows computer."));
     }
 
     let user = user.to_lowercase();
