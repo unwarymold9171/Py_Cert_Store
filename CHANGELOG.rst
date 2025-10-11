@@ -1,10 +1,11 @@
 Changelog
 =========
 
-.. Version 0.3.0
-.. -------------
-..
-.. **WIP** TODO: Update once 0.3.0 is started
+Version 0.3.0
+-------------
+
+- Updated dependencies to latest versions.
+- Added a new function ``find_windows_cert_all`` to return all valid certificates in a store.
 
 Version 0.2.2 : Patch Release
 -----------------------------
