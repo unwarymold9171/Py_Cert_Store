@@ -28,7 +28,14 @@ rust_cert = py_cert_store.get_win_cert(return_as_dict=True, verbose=False)
 # Case 3: This is the .NET base line that this module is trying to replace.
 # This method uses pythonnet to extract the certificate from the Windows certificate store using the .NET library functions.
 # The output for this case should be treated as the truth for this module to be compared against.
-from wincert import WinCerts
+try:
+    from wincert import WinCerts
+except (ModuleNotFoundError, ImportError):
+    print("The pythonnet package is not installed. Skipping final verification.")
+    print("Install `pythonnet`.")
+    print("If not able to be installed, this could be due to a too new version of Python. Pythonnet can take some time to catch up to the latest Python version.")
+    print("Exiting test.")
+    exit(0)
 
 with WinCerts() as certs:
     dotnet_cert = certs.get_cert(return_as_dict=True, verbose=False)

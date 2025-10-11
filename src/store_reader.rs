@@ -17,6 +17,7 @@
 #[deny(clippy::expect_used)]
 #[deny(clippy::panic)]
 
+
 use std::collections::HashMap;
 use pyo3::prelude::*; // TODO: properly import this module
 use pyo3::exceptions::{PyOSError, PyRuntimeError};
@@ -30,37 +31,18 @@ use crate::exceptions::{CertNotExportable, CertNotFound};
 #[pyfunction]
 #[pyo3(signature = (store="My", user="CurrentUser", extension_oid=None, extension_value=None))]
 /// Find a certificate in the Windows Certificate Store by its extension OID and value.
-pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Option<&str>, extension_value:Option<&str>) -> PyResult<Vec<HashMap<String, PyObject>>> {
+pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Option<&str>, extension_value:Option<&str>) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
     if !cfg!(windows) {
         return Err(PyOSError::new_err("The \"find_windows_cert_by_extension\" function can only be called from a Windows computer."));
     }
 
-    let user = user.to_lowercase();
-
-    let certs = match user.as_str() {
-        "currentuser" => {
-            CertStore::open_current_user(store).map_err(|_| {
-                PyRuntimeError::new_err("Could not open the certificate store.")
-            })
-        },
-        "localmachine" => {
-            CertStore::open_local_machine(store).map_err(|_| {
-                PyRuntimeError::new_err("Could not open the certificate store.")
-            })
-        },
-        _ => {
-            return Err(PyOSError::new_err("Invalid user parameter. Use 'CurrentUser' or 'LocalMachine'."));
-        },
-    };
-
-    let certs = match certs {
+    let certs = match get_certs_from_store(store, user) {
         Ok(certs) => certs,
-        Err(_) => {
-            return Err(PyRuntimeError::new_err("Could not open the certificate store."));
+        Err(err) => {
+            return Err(err);
         }
     };
 
-    // TODO: Change the final return type to a vector of dictionaries, since this currently only returns the first cert found that matches the criteria.
     let mut valid_certificates: Vec<CertContext> = Vec::new();
 
     for cert in certs.certs() {
@@ -112,7 +94,7 @@ pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Optio
         return Err(CertNotFound::new_err("No valid certificates found."));
     }
 
-    let mut output_dicts: Vec<HashMap<String, PyObject>> = Vec::new();
+    let mut output_dicts: Vec<HashMap<String, Py<PyAny>>> = Vec::new();
 
     for cert in valid_certificates {
         let output_dict = build_dict_from_cert(&cert).unwrap_or_default();
@@ -129,7 +111,95 @@ pub fn find_windows_cert_by_extension(store:&str, user:&str, extension_oid:Optio
     return Ok(output_dicts);
 }
 
-fn build_dict_from_cert(cert: &CertContext) -> PyResult<HashMap<String, PyObject>> {
+#[pyfunction]
+#[pyo3(signature = (store="My", user="CurrentUser"))]
+pub fn find_windows_cert_all(store:&str, user:&str) -> PyResult<Vec<HashMap<String, Py<PyAny>>>> {
+    if !cfg!(windows) {
+        return Err(PyOSError::new_err("The \"find_windows_cert_all\" function can only be called from a Windows computer."));
+    }
+
+    let certs = match get_certs_from_store(store, user) {
+        Ok(certs) => certs,
+        Err(err) => {
+            return Err(err);
+        }
+    };
+
+    let mut valid_certificates: Vec<CertContext> = Vec::new();
+
+    for cert in certs.certs() {
+
+        match cert.is_time_valid() {
+            Ok(valid) => {
+                if !valid {
+                    // The certificate is not time valid, so close the certificate and continue to the next one.
+                    cert.close();
+                    continue;
+                }
+            },
+            Err(_) => {
+                // There was an error checking the time validity, so close the certificate and continue to the next one.
+                cert.close();
+                continue;
+            }
+        }
+        valid_certificates.push(cert);
+    }
+
+    if valid_certificates.is_empty() {
+        return Err(CertNotFound::new_err("No valid certificates found."));
+    }
+
+    let mut output_dicts: Vec<HashMap<String, Py<PyAny>>> = Vec::new();
+
+    for cert in valid_certificates {
+        let output_dict = build_dict_from_cert(&cert).unwrap_or_default();
+        if !output_dict.is_empty() {
+            output_dicts.push(output_dict);
+        }
+        cert.close();
+    };
+
+    if output_dicts.is_empty() {
+        return Err(CertNotExportable::new_err("No Exportable certificates found."));
+    }
+
+    return Ok(output_dicts);
+}
+
+fn get_certs_from_store(store:&str, user:&str) -> Result<CertStore, PyErr>{
+    if !cfg!(windows) {
+        return Err(PyOSError::new_err("The \"get_certs_from_store\" function can only be called from a Windows computer."));
+    }
+
+    let user = user.to_lowercase();
+    let certs = match user.as_str() {
+        "currentuser" => {
+            CertStore::open_current_user(store).map_err(|_| {
+                PyRuntimeError::new_err("Could not open the certificate store.")
+            })
+        },
+        "localmachine" => {
+            CertStore::open_local_machine(store).map_err(|_| {
+                PyRuntimeError::new_err("Could not open the certificate store.")
+            })
+        },
+        _ => {
+            return Err(PyOSError::new_err("Invalid user parameter. Use 'CurrentUser' or 'LocalMachine'."));
+        },
+    };
+
+    let certs = match certs {
+        Ok(certs) => certs,
+        Err(_) => {
+            return Err(PyRuntimeError::new_err("Could not open the certificate store."));
+        }
+    };
+
+    return Ok(certs)
+}
+
+fn build_dict_from_cert(cert: &CertContext) -> PyResult<HashMap<String, Py<PyAny>>> {
     let mut dict = HashMap::new();
 
     match cert.is_exportable() {
@@ -169,15 +239,15 @@ fn build_dict_from_cert(cert: &CertContext) -> PyResult<HashMap<String, PyObject
 }
 
 /// Helper function to create a Python string from a Rust string
-fn create_python_string(value: &str) -> PyObject {
-    Python::with_gil(|py| {
+fn create_python_string(value: &str) -> Py<PyAny> {
+    Python::attach(|py| {
         PyString::new(py, value).into()
     })
 }
 
 /// Helper function to create a Python bytes object from a Rust byte slice
-fn create_python_bytes(value: &[u8]) -> PyObject {
-    Python::with_gil(|py| {
+fn create_python_bytes(value: &[u8]) -> Py<PyAny> {
+    Python::attach(|py| {
         PyBytes::new(py, value).into()
     })
 }
